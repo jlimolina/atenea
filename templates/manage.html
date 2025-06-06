@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionar Modelos - Atenea</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="logo">📚</span> Gestión de Modelos</h1>
+            <p class="subtitle">Descarga y administra tus modelos de lenguaje para Ollama.</p>
+        </header>
+
+        {% if error %}
+            <div class="error-message"><strong>Error:</strong> {{ error }}</div>
+        {% endif %}
+
+        <div class="download-section">
+            <h2>Catálogo de Modelos Disponibles</h2>
+            <div id="model-catalog-list">
+                {% for catalog_model in catalog_models %}
+                    <div class="model-card">
+                        <div class="model-info">
+                            <h4>{{ catalog_model.name }}</h4>
+                            <p>{{ catalog_model.description }} (Tamaño: {{ catalog_model.size }})</p>
+                        </div>
+                        <div class="model-action">
+                            {% if catalog_model.name in models %}
+                                <button class="installed-btn" disabled>✅ Instalado</button>
+                            {% else %}
+                                <button class="download-btn" data-model-name="{{ catalog_model.name }}">Descargar</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <div id="download-progress-container" style="display: none; margin-top: 20px;">
+                <h4 id="progress-title"></h4>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                    <span class="progress-text" id="progress-text">0%</span>
+                </div>
+                <pre id="download-progress-output"></pre>
+            </div>
+        </div>
+        
+        <a href="{{ url_for('index') }}" class="back-link" style="margin-top: 40px;">Volver a la página principal</a>
+    </div>
+
+    <script>
+        const downloadButtons = document.querySelectorAll('.download-btn');
+        const progressContainer = document.getElementById('download-progress-container');
+        const progressTitle = document.getElementById('progress-title');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressOutput = document.getElementById('download-progress-output');
+
+        downloadButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const modelName = this.dataset.modelName;
+                
+                downloadButtons.forEach(btn => { btn.disabled = true; btn.style.cursor = 'not-allowed'; });
+                button.textContent = 'Descargando...';
+
+                progressTitle.textContent = `Descargando ${modelName}...`;
+                progressOutput.textContent = '';
+                progressBar.style.width = '0%';
+                progressBar.style.background = '';
+                progressText.textContent = '0%';
+                progressContainer.style.display = 'block';
+
+                const eventSource = new EventSource(`/download_model?model_name=${modelName}`);
+
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'progress') {
+                        progressBar.style.width = data.percent + '%';
+                        progressText.textContent = data.percent + '%';
+                        progressOutput.textContent += data.status + '\n';
+                    } else if (data.type === 'log') {
+                        progressOutput.textContent += data.message + '\n';
+                    } else if (data.type === 'done') {
+                        if (data.success) {
+                            progressTitle.textContent = '¡Descarga Completada!';
+                            progressBar.style.width = '100%';
+                            progressText.textContent = '100%';
+                            progressBar.style.background = '#2ecc71';
+                        } else {
+                            progressTitle.textContent = 'Error en la Descarga';
+                            progressBar.style.background = '#e74c3c';
+                        }
+                    }
+                    progressOutput.scrollTop = progressOutput.scrollHeight;
+                };
+
+                eventSource.addEventListener('close', function() {
+                    eventSource.close();
+                    setTimeout(() => { window.location.reload(); }, 3000);
+                });
+
+                eventSource.onerror = function() {
+                    progressOutput.textContent += '\n--- Error de conexión. La descarga ha sido interrumpida. ---\n';
+                    eventSource.close();
+                    downloadButtons.forEach(btn => {
+                        if (!btn.classList.contains('installed-btn')) {
+                            btn.disabled = false;
+                            btn.textContent = 'Descargar';
+                            btn.style.cursor = 'pointer';
+                        }
+                    });
+                };
+            });
+        });
+    </script>
+</body>
+</html>

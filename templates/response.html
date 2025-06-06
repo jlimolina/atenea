@@ -28,14 +28,14 @@
                 </div>
             </div>
         {% else %}
-            <div class="response-box audio-container">
+            <div class="response-box" style="text-align: center;">
                 <strong>Detalles del TTS:</strong> {{ model }}
-                <audio controls autoplay>
+                <audio controls autoplay style="width: 100%; margin-top: 15px;">
                     <source src="data:audio/wav;base64,{{ response }}" type="audio/wav">
                     Tu navegador no soporta la reproducción de audio.
                 </audio>
                 <div>
-                    <a href="data:audio/wav;base64,{{ response }}" download="atenea_audio.wav" class="download-btn">
+                    <a href="data:audio/wav;base64,{{ response }}" download="atenea_audio.wav" class="download-btn" style="margin-top: 20px;">
                         Descargar Audio
                     </a>
                 </div>
@@ -46,12 +46,12 @@
     </div>
 
     <script>
-        // Intenta reproducir el audio automáticamente (solo funciona si el usuario ya interactuó con la página)
+        // Intenta reproducir el audio automáticamente al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             const audioElement = document.querySelector('audio');
             if(audioElement) {
                 audioElement.play().catch(e => {
-                    console.log("Reproducción automática no permitida:", e);
+                    console.log("La reproducción automática de audio fue bloqueada por el navegador.", e);
                 });
             }
         });

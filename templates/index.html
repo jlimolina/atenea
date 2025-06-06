@@ -19,7 +19,7 @@
 
         <div class="info-box">
             <span class="info-icon">💡</span>
-            <span>Selecciona un modo y escribe tu texto para interactuar con los modelos de IA</span>
+            <span>Selecciona un modo, interactúa con los modelos o gestiona tu biblioteca de IA.</span>
         </div>
 
         <form id="main-form" action="{{ url_for('ask') }}" method="post">
@@ -33,13 +33,13 @@
             </div>
 
             <div class="form-section" id="llm-section">
-                <label for="model">Selecciona un modelo LLM:</label>
+                <label for="model">Selecciona un modelo LLM instalado:</label>
                 <select name="model" id="model" required>
                     {% if models %}
                         <option value="" disabled selected>-- Elige un modelo --</option>
                         {% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}
                     {% else %}
-                        <option value="" disabled selected>-- No hay modelos disponibles --</option>
+                        <option value="" disabled selected>-- No hay modelos instalados --</option>
                     {% endif %}
                 </select>
             </div>
@@ -69,21 +69,19 @@
             </button>
         </form>
         
-        <footer>
-            Atenea AI v2.0 | Sistema Multimodal LLM + TTS
-        </footer>
-
-        <hr style="margin: 40px 0; border-color: #dee2e6;">
-
-        <div class="upload-section">
+        <div class="upload-section" style="margin-top: 30px; border-top: 1px solid #e9ecef; padding-top: 30px;">
             <h2>Añadir una nueva voz para clonar</h2>
-            <p>Sube un archivo <strong>.wav</strong> de 10-30 segundos con una voz clara y sin ruido de fondo para usarla como una nueva opción en el motor Coqui TTS.</p>
-            
+            <p>Sube un archivo <strong>.wav</strong> para usarlo como una nueva opción en el motor Coqui TTS.</p>
             <form action="{{ url_for('upload_voice') }}" method="post" enctype="multipart/form-data">
                 <input type="file" name="voice_file" accept=".wav" required>
                 <button type="submit" style="width: auto; padding: 10px 15px; margin-top: 10px;">Subir Voz</button>
             </form>
         </div>
+        
+        <footer>
+            Atenea AI v2.0 | Sistema Multimodal LLM + TTS | 
+            <a href="{{ url_for('manage_page') }}">Gestionar Modelos</a>
+        </footer>
     </div>
 
     <script>
@@ -95,7 +93,6 @@
         const ttsEngineSelect = document.getElementById('tts_engine');
         const ttsSpeakerSelect = document.getElementById('tts_speaker');
 
-        // Objeto JS que se construye dinámicamente con los datos de Flask
         const voicesByEngine = {
             'silero': {
                 'Voz Femenina 1': 'es_0',
@@ -104,8 +101,6 @@
             },
             'coqui': {
                 {% for voice_file in available_voices %}
-                    // La clave es el nombre del archivo sin extensión y con formato de título
-                    // El valor es la ruta completa al archivo
                     '{{ voice_file.split(".")[0].replace("_", " ")|title }}': 'voices/{{ voice_file }}',
                 {% endfor %}
             }
@@ -114,22 +109,18 @@
         function updateSpeakerOptions() {
             const selectedEngine = ttsEngineSelect.value;
             ttsSpeakerSelect.innerHTML = ''; 
-
             const availableVoices = voicesByEngine[selectedEngine];
             for (const name in availableVoices) {
                 const value = availableVoices[name];
-                const option = new Option(name, value);
-                ttsSpeakerSelect.add(option);
+                ttsSpeakerSelect.add(new Option(name, value));
             }
         }
 
         function updateFormMode() {
             const isTTSMode = document.querySelector('input[name="mode"]:checked').value === 'tts';
-
             llmSection.style.display = isTTSMode ? 'none' : 'block';
             ttsEngineSection.style.display = isTTSMode ? 'block' : 'none';
             ttsSpeakerSection.style.display = isTTSMode ? 'block' : 'none';
-
             llmModelSelect.disabled = isTTSMode;
             ttsEngineSelect.disabled = !isTTSMode;
             ttsSpeakerSelect.disabled = !isTTSMode;
