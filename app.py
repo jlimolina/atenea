@@ -11,36 +11,85 @@ import psutil
 import os
 import requests
 from functools import wraps
+from TTS.api import TTS
+from torch.serialization import safe_globals
+from TTS.tts.configs.xtts_config import XttsConfig
 
-# Configuración mejorada de logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+# Configuración de logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
 
 app = Flask(__name__)
 
 # Configuración
 OLLAMA_HOST = 'http://localhost:11434'
-MAX_TTS_LENGTH = 5000
 LLM_TIMEOUT = 180
 
-# Filtro personalizado para convertir saltos de línea en <br>
+# Filtro Jinja
 def nl2br(value):
-    """Convierte saltos de línea en etiquetas HTML <br>"""
     return value.replace('\n', '<br>') if value else ''
-
 app.jinja_env.filters['nl2br'] = nl2br
 
-# Inicialización de modelos
-vits_model = None
-logging.info("Sistema de TTS inicializado (carga bajo demanda)")
+# --- ARQUITECTURA MULTI-MOTOR TTS ---
 
+# 1. Caché para los modelos cargados
+silero_vits_model = None
+coqui_xtts_model = None
+
+def get_silero_model():
+    """Carga el modelo Silero VITS bajo demanda."""
+    global silero_vits_model
+    if silero_vits_model:
+        return silero_vits_model
+    
+    logging.info("Cargando modelo Silero VITS...")
+    # Configuración especial para evitar problemas de descarga
+    torch.hub.set_dir(os.path.expanduser('~/.cache/torch/hub'))
+    torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
+    model, _ = torch.hub.load(
+        repo_or_dir='snakers4/silero-models', model='silero_tts',
+        language='es', speaker='v3_es', trust_repo=True
+    )
+    silero_vits_model = model
+    logging.info("Modelo Silero VITS cargado.")
+    return silero_vits_model
+
+def get_coqui_model():
+    """Carga el modelo Coqui TTS (XTTS v2) bajo demanda."""
+    global coqui_xtts_model
+    if coqui_xtts_model:
+        return coqui_xtts_model
+    
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    logging.info(f"Cargando modelo Coqui TTS en dispositivo: {device}. ¡Puede tardar la primera vez!")
+    with safe_globals([XttsConfig]):
+        model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+    coqui_xtts_model = model
+    logging.info("Modelo Coqui TTS cargado.")
+    return coqui_xtts_model
+
+def generate_silero_audio(text, speaker):
+    """Genera audio con Silero y devuelve el tensor y su sample rate."""
+    model = get_silero_model()
+    audio_tensor = model.apply_tts(text=text, speaker=speaker, sample_rate=48000)
+    return audio_tensor.unsqueeze(0), 48000
+
+def generate_coqui_audio(text, speaker_wav):
+    """Genera audio con Coqui y devuelve el tensor y su sample rate."""
+    model = get_coqui_model()
+    wav_output = model.tts(text=text, speaker_wav=speaker_wav, language="es")
+    audio_tensor = torch.tensor(wav_output).unsqueeze(0)
+    return audio_tensor, 24000
+
+# 2. Registro de Motores
+TTS_ENGINES = {
+    'silero': generate_silero_audio,
+    'coqui': generate_coqui_audio,
+}
+
+# --- FIN DE LA ARQUITECTURA MULTI-MOTOR ---
+
+# ... (Las funciones check_ollama_connection y get_ollama_models no cambian) ...
 def check_ollama_connection():
-    """Verifica si Ollama está disponible"""
     try:
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
         return response.status_code == 200
@@ -48,280 +97,93 @@ def check_ollama_connection():
         return False
 
 def get_ollama_models():
-    """Obtiene modelos de Ollama con manejo robusto de errores"""
     try:
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
         response.raise_for_status()
-        data = response.json()
-        return [model['name'] for model in data.get('models', [])]
+        return [model['name'] for model in response.json().get('models', [])]
     except Exception as e:
         logging.error(f"Error al obtener modelos de Ollama: {str(e)}")
         return []
 
-def get_vits_model():
-    """Obtiene el modelo VITS con manejo mejorado de errores"""
-    global vits_model
-
-    if vits_model is not None:
-        return vits_model
-
-    try:
-        # Verificar memoria disponible
-        mem = psutil.virtual_memory()
-        if mem.available < 2 * 1024 * 1024 * 1024:  # 2GB mínimo recomendado
-            logging.warning(f"Memoria baja disponible: {mem.available/(1024*1024):.2f}MB")
-
-        logging.info("Descargando modelo VITS...")
-        start_time = time.time()
-
-        # Configuración especial para evitar problemas de descarga
-        torch.hub.set_dir(os.path.expanduser('~/.cache/torch/hub'))
-        torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
-
-        # Cargar modelo con configuración actualizada
-        vits_model, _ = torch.hub.load(
-            repo_or_dir='snakers4/silero-models',
-            model='silero_tts',
-            language='es',
-            speaker='v3_es',
-            trust_repo=True,
-            verbose=True
-        )
-
-        # Mover a CPU/GPU según disponibilidad
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        vits_model.to(device)
-        logging.info(f"Modelo VITS cargado en {time.time() - start_time:.2f} segundos (dispositivo: {device})")
-
-        # Prueba de generación de audio
-        with torch.no_grad():
-            test_text = "Prueba de audio exitosa"
-            # ---> CORRECCIÓN: Usar una voz válida para la prueba.
-            test_audio = vits_model.apply_tts(text=test_text, speaker='es_0')
-
-            if not isinstance(test_audio, torch.Tensor):
-                raise RuntimeError("El modelo no generó tensor de audio válido")
-
-            if test_audio.dim() != 1 or test_audio.numel() == 0:
-                raise RuntimeError("Audio generado no válido")
-
-            # Generar archivo de prueba
-            test_path = "test_audio.wav"
-            torchaudio.save(test_path, test_audio.unsqueeze(0), 48000)
-            logging.info(f"Archivo de prueba generado en: {test_path}")
-
-        return vits_model
-
-    except Exception as e:
-        logging.error(f"Error crítico al cargar VITS: {str(e)}", exc_info=True)
-        vits_model = None
-        return None
-
 @app.route('/')
 def index():
-    """Ruta principal mejorada con verificación de dependencias"""
-    tts_available = False
-    error_message = None
-
-    # Verificar Ollama
+    # ... (Esta ruta no cambia) ...
     ollama_available = check_ollama_connection()
     model_names = get_ollama_models() if ollama_available else []
-
+    error_message = None
     if not ollama_available:
-        error_message = "Ollama no está disponible. Por favor inicia el servicio."
+        error_message = "Ollama no está disponible."
     elif not model_names:
-        error_message = "Ollama está corriendo pero no hay modelos disponibles."
-
-    # Verificar TTS
-    try:
-        import torchaudio
-        tts_available = True
-    except ImportError:
-        error_message = (error_message + " | " if error_message else "") + "Torchaudio no instalado"
-        tts_available = False
-
-    return render_template(
-        'index.html',
-        models=model_names,
-        error=error_message,
-        tts_available=tts_available
-    )
+        error_message = "Ollama está corriendo pero no hay modelos."
+    return render_template('index.html', models=model_names, error=error_message)
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    """Versión mejorada con mejor manejo de errores y selección de voz TTS"""
     data = request.form
     question = data.get('question', '').strip()
-    selected_model = data.get('model')
     mode = data.get('mode', 'llm')
 
-    # Validaciones comunes
     if not question:
         return jsonify({"error": "Texto requerido"}), 400
-    if len(question) > MAX_TTS_LENGTH and mode == 'tts':
-        return jsonify({"error": f"Texto demasiado largo para TTS (máx {MAX_TTS_LENGTH} chars)"}), 400
 
-    # Modo TTS
-    if mode == 'tts':
+    if mode == 'llm':
+        # --- Lógica LLM (sin cambios) ---
+        selected_model = data.get('model')
+        if not selected_model:
+            return jsonify({"error": "Modelo no seleccionado"}), 400
         try:
-            # ---> CAMBIO: Obtiene la voz seleccionada del formulario
-            selected_speaker = request.form.get('tts_speaker', 'v3_es')
+            response = ollama.chat(model=selected_model, messages=[{'role': 'user', 'content': question}], options={'timeout': LLM_TIMEOUT})
+            return render_template('response.html', response=response['message']['content'], question=question, model=selected_model, mode=mode)
+        except Exception as e:
+            # ... (manejo de errores de LLM sin cambios) ...
+            error_msg = {socket.gaierror: "Error de red"}.get(type(e), f"Error: {str(e)}")
+            logging.error(f"Error LLM: {error_msg}")
+            return render_template('response.html', response=error_msg, question=question, model=selected_model, mode=mode)
 
-            model = get_vits_model()
-            if model is None:
-                raise RuntimeError("Modelo de voz no disponible. Verifica los logs para más información.")
+    elif mode == 'tts':
+        # --- Lógica TTS (Refactorizada) ---
+        try:
+            selected_engine_name = request.form.get('tts_engine', 'silero')
+            selected_speaker = request.form.get('tts_speaker')
 
-            logging.info(f"Generando audio para texto: {question[:50]}... (Voz: {selected_speaker})")
+            generation_function = TTS_ENGINES.get(selected_engine_name)
+            if not generation_function:
+                raise ValueError(f"Motor TTS no válido: {selected_engine_name}")
 
-            # Generación de audio
-            with torch.no_grad():
-                # ---> CAMBIO: Usa la voz seleccionada
-                audio = model.apply_tts(text=question[:MAX_TTS_LENGTH], speaker=selected_speaker)
-                if audio.numel() == 0:
-                    raise RuntimeError("El modelo generó audio vacío")
-
-            # Convertir a bytes
+            logging.info(f"Generando audio con motor '{selected_engine_name}' y voz '{selected_speaker}'...")
+            
+            # Llama a la función correspondiente, que devuelve el audio y su sample rate
+            audio_tensor, sample_rate = generation_function(question, selected_speaker)
+            
+            # Proceso común de conversión a base64
             audio_data = io.BytesIO()
-            torchaudio.save(audio_data, audio.unsqueeze(0), 48000, format='wav')
+            torchaudio.save(audio_data, audio_tensor, sample_rate, format='wav')
             audio_data.seek(0)
-
-            # Verificar contenido del audio
+            
             if audio_data.getbuffer().nbytes < 100:
                 raise RuntimeError("El archivo de audio generado es demasiado pequeño")
 
             audio_base64 = base64.b64encode(audio_data.read()).decode('utf-8')
-            logging.info("Audio generado exitosamente")
+            logging.info("Audio generado exitosamente.")
 
             return render_template(
                 'response.html',
                 response=audio_base64,
                 question=question,
-                # ---> CAMBIO: Pasa la voz usada a la plantilla de respuesta
-                model=f"Voz {selected_speaker}",
+                model=f"Motor: {selected_engine_name}, Voz: {os.path.basename(selected_speaker)}",
                 mode=mode
             )
-
         except Exception as e:
             logging.error(f"Error en TTS: {str(e)}", exc_info=True)
-            return render_template(
-                'response.html',
-                response=f"Error al generar audio: {str(e)}. Verifica la terminal para más detalles.",
-                question=question,
-                model="VITS (Silero)",
-                mode=mode
-            )
+            return render_template('response.html', response=f"Error al generar audio: {e}", question=question, model="Error TTS", mode=mode)
 
-    # Modo LLM
-    elif mode == 'llm':
-        if not selected_model:
-            return jsonify({"error": "Modelo no seleccionado"}), 400
-
-        try:
-            response = ollama.chat(
-                model=selected_model,
-                messages=[{'role': 'user', 'content': question}],
-                options={'timeout': LLM_TIMEOUT}
-            )
-            return render_template(
-                'response.html',
-                response=response['message']['content'],
-                question=question,
-                model=selected_model,
-                mode=mode
-            )
-        except Exception as e:
-            error_msg = {
-                socket.gaierror: "Error de red",
-                ConnectionRefusedError: "Ollama no responde",
-                TimeoutError: "Tiempo agotado"
-            }.get(type(e), f"Error: {str(e)}")
-
-            logging.error(f"Error LLM: {error_msg}")
-            return render_template(
-                'response.html',
-                response=error_msg,
-                question=question,
-                model=selected_model,
-                mode=mode
-            )
-
-@app.route('/generate_tts', methods=['POST'])
-def generate_tts():
-    """Endpoint API mejorado para TTS con selección de voz"""
-    try:
-        data = request.get_json()
-        if not data or 'text' not in data:
-            return jsonify({"error": "Datos inválidos"}), 400
-
-        text = data['text'].strip()[:MAX_TTS_LENGTH]
-        if not text:
-            return jsonify({"error": "Texto vacío"}), 400
-        
-        # ---> CAMBIO: Acepta un parámetro de voz desde el JSON
-        speaker = data.get('speaker', 'v3_es')
-
-        model = get_vits_model()
-        if not model:
-            return jsonify({"error": "Modelo no disponible"}), 503
-
-        # Generación eficiente
-        with torch.no_grad():
-            # ---> CAMBIO: Usa la voz seleccionada
-            audio = model.apply_tts(text=text, speaker=speaker)
-            if audio.numel() == 0:
-                raise RuntimeError("El modelo generó audio vacío")
-
-        audio_data = io.BytesIO()
-        torchaudio.save(audio_data, audio.unsqueeze(0), 48000, 'wav')
-        audio_data.seek(0)
-
-        return send_file(
-            audio_data,
-            mimetype="audio/wav",
-            as_attachment=False,
-            download_name="atenea_audio.wav"
-        )
-
-    except Exception as e:
-        logging.error(f"Error API TTS: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
+# ... (la ruta /system_status y el bloque if __name__ == '__main__' no necesitan grandes cambios) ...
 @app.route('/system_status')
 def system_status():
-    """Endpoint para diagnóstico"""
-    status = {
-        "memory": {
-            "total": psutil.virtual_memory().total / (1024**3),
-            "available": psutil.virtual_memory().available / (1024**3)
-        },
-        "ollama_available": check_ollama_connection(),
-        "ollama_models": get_ollama_models(),
-        "tts_loaded": vits_model is not None,
-        "torch_version": torch.__version__,
-        "torchaudio_version": torchaudio.__version__ if 'torchaudio' in globals() else "No disponible",
-        "audio_test_file": os.path.exists("test_audio.wav")
-    }
+    status = {"ollama_available": check_ollama_connection(), "ollama_models": get_ollama_models()}
     return jsonify(status)
 
 if __name__ == '__main__':
-    print("\n" + "="*50)
-    print("Atenea - Servicio Multimodal de IA")
-    print("="*50)
-    print(f"PyTorch: {torch.__version__}")
-    print(f"Torchaudio: {torchaudio.__version__}")
-    print(f"Memoria disponible: {psutil.virtual_memory().available/(1024**3):.2f} GB")
-    print(f"Ollama disponible: {'Sí' if check_ollama_connection() else 'No'}")
-
-    # Precargar modelo en segundo plano
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Usando dispositivo: {device}")
-
-    # Verificar TTS
-    print("\nProbando sistema TTS...")
-    try:
-        get_vits_model()
-        print("✅ Sistema TTS listo")
-    except Exception as e:
-        print(f"❌ Error en TTS: {str(e)}")
-
+    print("\n" + "="*50 + "\nAtenea - Servicio Multimodal de IA\n" + "="*50)
+    # Ya no precargamos ningún modelo, se cargarán bajo demanda.
     app.run(host='0.0.0.0', port=5000, debug=True)

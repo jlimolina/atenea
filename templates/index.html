@@ -4,230 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atenea - Asistente Multimodal</title>
-    <style>
-        :root {
-            --primary-color: #4361ee;
-            --secondary-color: #3f37c9;
-            --tts-color: #4cc9f0;
-            --llm-color: #4895ef;
-            --error-color: #f72585;
-            --success-color: #4cc9f0;
-            --text-color: #2b2d42;
-            --light-bg: #f8f9fa;
-            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--light-bg);
-            color: var(--text-color);
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 30px auto;
-            padding: 30px;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: var(--card-shadow);
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        h1 {
-            color: var(--primary-color);
-            margin-bottom: 10px;
-            font-size: 2.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .logo {
-            font-size: 2.8rem;
-        }
-
-        .subtitle {
-            color: #6c757d;
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-        }
-
-        .mode-selector {
-            display: flex;
-            margin-bottom: 25px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #dee2e6;
-        }
-
-        .mode-option {
-            flex: 1;
-            padding: 15px;
-            text-align: center;
-            cursor: pointer;
-            background-color: white;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .mode-option:not(:last-child) {
-            border-right: 1px solid #dee2e6;
-        }
-
-        .mode-option.active {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .mode-option.llm.active {
-            background-color: var(--llm-color);
-        }
-
-        .mode-option.tts.active {
-            background-color: var(--tts-color);
-        }
-
-        .mode-option:hover:not(.active) {
-            background-color: #f1f3f5;
-        }
-
-        .form-section {
-            margin-bottom: 25px;
-        }
-
-        /* CAMBIO: Ocultar la sección TTS por defecto */
-        #tts-section {
-            display: none;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-
-        select, textarea {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s, box-shadow 0.3s;
-        }
-
-        select:focus, textarea:focus {
-            border-color: var(--primary-color);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-
-        textarea {
-            min-height: 150px;
-            resize: vertical;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        button:hover {
-            background-color: var(--secondary-color);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .error-message {
-            padding: 15px;
-            background-color: #fee2e2;
-            color: var(--error-color);
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid var(--error-color);
-        }
-
-        .info-box {
-            padding: 15px;
-            background-color: #e6f2ff;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            border-left: 4px solid var(--primary-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .info-icon {
-            font-size: 1.5rem;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 30px;
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-                margin: 15px;
-            }
-
-            h1 {
-                font-size: 2rem;
-            }
-
-            .mode-option {
-                padding: 12px 8px;
-                font-size: 0.9rem;
-            }
-        }
-
-        /* Animaciones */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .container {
-            animation: fadeIn 0.5s ease-out;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>
-                <span class="logo">🦉</span>
-                <span>Atenea</span>
-            </h1>
+            <h1><span class="logo">🦉</span> Atenea</h1>
             <p class="subtitle">Tu asistente multimodal de inteligencia artificial</p>
         </header>
 
         {% if error %}
-            <div class="error-message">
-                <strong>Error:</strong> {{ error }}
-            </div>
+            <div class="error-message"><strong>Error:</strong> {{ error }}</div>
         {% endif %}
-
+        
         <div class="info-box">
             <span class="info-icon">💡</span>
             <span>Selecciona un modo y escribe tu texto para interactuar con los modelos de IA</span>
@@ -236,45 +25,42 @@
         <form id="main-form" action="/ask" method="post">
             <div class="mode-selector">
                 <label class="mode-option llm active" id="llm-option">
-                    <input type="radio" name="mode" value="llm" checked hidden>
-                    Modelo de Lenguaje (LLM)
+                    <input type="radio" name="mode" value="llm" checked hidden> Modelo de Lenguaje (LLM)
                 </label>
                 <label class="mode-option tts" id="tts-option">
-                    <input type="radio" name="mode" value="tts" hidden>
-                    Texto a Voz (TTS)
+                    <input type="radio" name="mode" value="tts" hidden> Texto a Voz (TTS)
                 </label>
             </div>
 
             <div class="form-section" id="llm-section">
-                <label for="model">Selecciona un modelo:</label>
+                <label for="model">Selecciona un modelo LLM:</label>
                 <select name="model" id="model" required>
                     {% if models %}
-                        <option value="" disabled selected>-- Selecciona un modelo --</option>
-                        {% for model_name in models %}
-                            <option value="{{ model_name }}">{{ model_name }}</option>
-                        {% endfor %}
+                        <option value="" disabled selected>-- Elige un modelo --</option>
+                        {% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}
                     {% else %}
-                        <option value="" disabled selected>-- No hay modelos disponibles --</option>
+                        <option value="" disabled selected>-- No hay modelos --</option>
                     {% endif %}
                 </select>
             </div>
             
-            <div class="form-section" id="tts-section">
-                <label for="tts_speaker">Selecciona una voz:</label>
-                <select name="tts_speaker" id="tts_speaker">
-                    <option value="v3_es" selected>Voz Femenina</option>
-                    <option value="tux_v2">Voz Masculina</option>
+            <div class="form-section" id="tts-engine-section">
+                <label for="tts_engine">Motor de Voz:</label>
+                <select name="tts_engine" id="tts_engine">
+                    <option value="silero">Silero</option>
+                    <option value="coqui">Coqui TTS (Clonación)</option>
                 </select>
+            </div>
+
+            <div class="form-section" id="tts-speaker-section">
+                <label for="tts_speaker">Voz / Locutor:</label>
+                <select name="tts_speaker" id="tts_speaker" required>
+                    </select>
             </div>
 
             <div class="form-section">
                 <label for="question" id="question-label">Tu consulta:</label>
-                <textarea
-                    name="question"
-                    id="question"
-                    minlength="3"
-                    required
-                    placeholder="Escribe tu texto aquí..."></textarea>
+                <textarea name="question" id="question" minlength="3" required placeholder="Escribe tu texto aquí..."></textarea>
             </div>
 
             <button type="submit" id="submit-btn">
@@ -282,55 +68,66 @@
                 <span id="loading-indicator" style="display:none;">Procesando...</span>
             </button>
         </form>
-
-        <footer>
+         <footer>
             Atenea AI v2.0 | Sistema Multimodal LLM + TTS
         </footer>
     </div>
 
     <script>
-        // Cambiar entre modos LLM y TTS
-        const llmOption = document.getElementById('llm-option');
-        const ttsOption = document.getElementById('tts-option');
+        // --- LÓGICA DE LA INTERFAZ DINÁMICA ---
         const llmSection = document.getElementById('llm-section');
-        const questionLabel = document.getElementById('question-label');
-        const submitText = document.getElementById('submit-text');
-        const modelSelect = document.getElementById('model');
-        // CAMBIO: Obtener referencia a la nueva sección TTS
-        const ttsSection = document.getElementById('tts-section');
+        const ttsEngineSection = document.getElementById('tts-engine-section');
+        const ttsSpeakerSection = document.getElementById('tts-speaker-section');
+        
+        const llmModelSelect = document.getElementById('model');
+        const ttsEngineSelect = document.getElementById('tts_engine');
+        const ttsSpeakerSelect = document.getElementById('tts_speaker');
 
-        // Manejar cambios en el modo seleccionado
+        // Definimos las voces disponibles para cada motor
+        const voicesByEngine = {
+            'silero': {
+                'Voz Femenina 1': 'es_0',
+                'Voz Femenina 2': 'es_1',
+                'Voz Femenina 3': 'es_2',
+            },
+            'coqui': {
+                'Mi Voz Clonada 1': 'voices/voz_clonada_1.wav',
+                'Mi Voz Clonada 2': 'voices/voz_clonada_2.wav',
+            }
+        };
+
+        function updateSpeakerOptions() {
+            const selectedEngine = ttsEngineSelect.value;
+            ttsSpeakerSelect.innerHTML = ''; // Limpiar opciones anteriores
+
+            const availableVoices = voicesByEngine[selectedEngine];
+            for (const name in availableVoices) {
+                const value = availableVoices[name];
+                const option = new Option(name, value);
+                ttsSpeakerSelect.add(option);
+            }
+        }
+
         function updateFormMode() {
             const isTTSMode = document.querySelector('input[name="mode"]:checked').value === 'tts';
 
-            // Actualizar clases activas
-            llmOption.classList.toggle('active', !isTTSMode);
-            ttsOption.classList.toggle('active', isTTSMode);
-
-            // Mostrar/ocultar secciones
+            // Mostrar u ocultar las secciones correspondientes
             llmSection.style.display = isTTSMode ? 'none' : 'block';
-            // CAMBIO: Mostrar/ocultar la sección de selección de voz TTS
-            ttsSection.style.display = isTTSMode ? 'block' : 'none';
+            ttsEngineSection.style.display = isTTSMode ? 'block' : 'none';
+            ttsSpeakerSection.style.display = isTTSMode ? 'block' : 'none';
 
-            // Deshabilitar el selector de LLM si está oculto para evitar errores de validación
-            modelSelect.disabled = isTTSMode;
-
-            // Cambiar textos según el modo
-            questionLabel.textContent = isTTSMode ? 'Texto a convertir a voz:' : 'Tu consulta:';
-            submitText.textContent = isTTSMode ? 'Generar Audio' : 'Generar Respuesta';
+            // Habilitar/deshabilitar campos para que la validación 'required' funcione correctamente
+            llmModelSelect.disabled = isTTSMode;
+            ttsEngineSelect.disabled = !isTTSMode;
+            ttsSpeakerSelect.disabled = !isTTSMode;
+            
+            // Actualizar clases y textos
+            document.getElementById('llm-option').classList.toggle('active', !isTTSMode);
+            document.getElementById('tts-option').classList.toggle('active', isTTSMode);
+            document.getElementById('question-label').textContent = isTTSMode ? 'Texto a convertir a voz:' : 'Tu consulta:';
+            document.getElementById('submit-text').textContent = isTTSMode ? 'Generar Audio' : 'Generar Respuesta';
         }
-
-        // Event listeners
-        llmOption.addEventListener('click', function() {
-            document.querySelector('input[name="mode"][value="llm"]').checked = true;
-            updateFormMode();
-        });
-
-        ttsOption.addEventListener('click', function() {
-            document.querySelector('input[name="mode"][value="tts"]').checked = true;
-            updateFormMode();
-        });
-
+        
         // Manejar envío del formulario
         document.getElementById('main-form').addEventListener('submit', function() {
             const submitBtn = document.getElementById('submit-btn');
@@ -342,8 +139,22 @@
             loadingIndicator.style.display = 'inline';
         });
 
-        // Inicializar
+        // Event Listeners
+        document.getElementById('llm-option').addEventListener('click', () => {
+             document.querySelector('input[name="mode"][value="llm"]').checked = true;
+             updateFormMode();
+        });
+        
+        document.getElementById('tts-option').addEventListener('click', () => {
+             document.querySelector('input[name="mode"][value="tts"]').checked = true;
+             updateFormMode();
+        });
+        
+        ttsEngineSelect.addEventListener('change', updateSpeakerOptions);
+
+        // Inicialización
         updateFormMode();
+        updateSpeakerOptions();
     </script>
 </body>
 </html>
