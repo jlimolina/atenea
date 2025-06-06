@@ -1,0 +1,35 @@
+# Entorno virtual de Python
+/venv/
+/.venv/
+/env/
+/ENV/
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de caché de herramientas
+.pytest_cache/
+.mypy_cache/
+.tox/
+.coverage
+
+# Archivos de configuración de IDEs
+.idea/
+.vscode/
+*.swp
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivo de audio de prueba generado
+test_audio.wav
+
+# Archivos de entorno (si decides usarlos en el futuro)
+.env
+
+# Directorio de caché de PyTorch/hub
+.cache/

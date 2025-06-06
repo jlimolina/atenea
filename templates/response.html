@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Respuesta de Atenea</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #343a40;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mode-indicator {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .llm-indicator {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        .tts-indicator {
+            background-color: #e8f5e9;
+            color: #388e3c;
+        }
+        .info-box {
+            margin-bottom: 25px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .question-box {
+            background-color: #f0f4f8;
+            border-left: 4px solid #3498db;
+        }
+        .response-box {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .audio-container {
+            margin-top: 25px;
+            text-align: center;
+        }
+        audio {
+            width: 100%;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .download-btn {
+            display: inline-block;
+            background: linear-gradient(to right, #4CAF50, #2E7D32);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        .download-btn:hover {
+            background: linear-gradient(to right, #2E7D32, #1B5E20);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            background: linear-gradient(to right, #3498db, #2980b9);
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .back-link:hover {
+            background: linear-gradient(to right, #2980b9, #2573a7);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .response-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            Respuesta de Atenea
+            <span class="mode-indicator {{ 'llm-indicator' if mode == 'llm' else 'tts-indicator' }}">
+                {{ 'LLM' if mode == 'llm' else 'TTS' }}
+            </span>
+        </h1>
+
+        <div class="info-box question-box">
+            <strong>{{ 'Tu pregunta:' if mode == 'llm' else 'Texto convertido:' }}</strong>
+            <p>{{ question }}</p>
+        </div>
+
+        {% if mode == 'llm' %}
+            <div class="response-box">
+                <strong>Modelo utilizado:</strong> {{ model }}
+                <div class="response-text">
+                    {{ response | nl2br | safe }}
+                </div>
+            </div>
+        {% else %}
+            <div class="audio-container">
+                <strong>Audio generado:</strong>
+                <audio controls autoplay>
+                    <source src="data:audio/wav;base64,{{ response }}" type="audio/wav">
+                    Tu navegador no soporta la reproducción de audio.
+                </audio>
+                <div>
+                    <a href="data:audio/wav;base64,{{ response }}" download="atenea_audio.wav" class="download-btn">
+                        Descargar Audio
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+
+        <a href="/" class="back-link">Volver al inicio</a>
+    </div>
+
+    <script>
+        // Intenta reproducir el audio automáticamente (solo funciona si el usuario ya interactuó con la página)
+        document.addEventListener('DOMContentLoaded', function() {
+            const audioElement = document.querySelector('audio');
+            if(audioElement) {
+                audioElement.play().catch(e => {
+                    console.log("Reproducción automática no permitida:", e);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
