@@ -62,12 +62,14 @@
         }
         .audio-container {
             margin-top: 25px;
-            text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
         }
         audio {
             width: 100%;
-            margin: 15px 0;
-            border-radius: 8px;
+            margin-top: 15px;
         }
         .download-btn {
             display: inline-block;
@@ -78,7 +80,7 @@
             text-decoration: none;
             font-weight: 600;
             transition: all 0.3s;
-            margin-top: 10px;
+            margin-top: 20px;
         }
         .download-btn:hover {
             background: linear-gradient(to right, #2E7D32, #1B5E20);
@@ -138,7 +140,7 @@
             </div>
         {% else %}
             <div class="audio-container">
-                <strong>Audio generado:</strong>
+                <strong>Voz utilizada:</strong> {{ model }}
                 <audio controls autoplay>
                     <source src="data:audio/wav;base64,{{ response }}" type="audio/wav">
                     Tu navegador no soporta la reproducción de audio.

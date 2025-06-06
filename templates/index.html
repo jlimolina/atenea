@@ -16,7 +16,7 @@
             --light-bg: #f8f9fa;
             --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -25,7 +25,7 @@
             color: var(--text-color);
             line-height: 1.6;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 30px auto;
@@ -34,12 +34,12 @@
             border-radius: 12px;
             box-shadow: var(--card-shadow);
         }
-        
+
         header {
             text-align: center;
             margin-bottom: 30px;
         }
-        
+
         h1 {
             color: var(--primary-color);
             margin-bottom: 10px;
@@ -49,17 +49,17 @@
             justify-content: center;
             gap: 10px;
         }
-        
+
         .logo {
             font-size: 2.8rem;
         }
-        
+
         .subtitle {
             color: #6c757d;
             font-size: 1.1rem;
             margin-bottom: 20px;
         }
-        
+
         .mode-selector {
             display: flex;
             margin-bottom: 25px;
@@ -67,7 +67,7 @@
             overflow: hidden;
             border: 1px solid #dee2e6;
         }
-        
+
         .mode-option {
             flex: 1;
             padding: 15px;
@@ -77,39 +77,44 @@
             transition: all 0.3s ease;
             font-weight: 500;
         }
-        
+
         .mode-option:not(:last-child) {
             border-right: 1px solid #dee2e6;
         }
-        
+
         .mode-option.active {
             background-color: var(--primary-color);
             color: white;
         }
-        
+
         .mode-option.llm.active {
             background-color: var(--llm-color);
         }
-        
+
         .mode-option.tts.active {
             background-color: var(--tts-color);
         }
-        
+
         .mode-option:hover:not(.active) {
             background-color: #f1f3f5;
         }
-        
+
         .form-section {
             margin-bottom: 25px;
         }
-        
+
+        /* CAMBIO: Ocultar la sección TTS por defecto */
+        #tts-section {
+            display: none;
+        }
+
         label {
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
             color: var(--text-color);
         }
-        
+
         select, textarea {
             width: 100%;
             padding: 12px 15px;
@@ -118,18 +123,18 @@
             font-size: 1rem;
             transition: border-color 0.3s, box-shadow 0.3s;
         }
-        
+
         select:focus, textarea:focus {
             border-color: var(--primary-color);
             outline: none;
             box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
         }
-        
+
         textarea {
             min-height: 150px;
             resize: vertical;
         }
-        
+
         button {
             width: 100%;
             padding: 14px;
@@ -142,13 +147,13 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         button:hover {
             background-color: var(--secondary-color);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
-        
+
         .error-message {
             padding: 15px;
             background-color: #fee2e2;
@@ -157,7 +162,7 @@
             margin-bottom: 20px;
             border-left: 4px solid var(--error-color);
         }
-        
+
         .info-box {
             padding: 15px;
             background-color: #e6f2ff;
@@ -168,40 +173,40 @@
             align-items: center;
             gap: 10px;
         }
-        
+
         .info-icon {
             font-size: 1.5rem;
         }
-        
+
         footer {
             text-align: center;
             margin-top: 30px;
             color: #6c757d;
             font-size: 0.9rem;
         }
-        
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
                 margin: 15px;
             }
-            
+
             h1 {
                 font-size: 2rem;
             }
-            
+
             .mode-option {
                 padding: 12px 8px;
                 font-size: 0.9rem;
             }
         }
-        
+
         /* Animaciones */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+
         .container {
             animation: fadeIn 0.5s ease-out;
         }
@@ -229,7 +234,6 @@
         </div>
 
         <form id="main-form" action="/ask" method="post">
-            <!-- Selector de modo -->
             <div class="mode-selector">
                 <label class="mode-option llm active" id="llm-option">
                     <input type="radio" name="mode" value="llm" checked hidden>
@@ -241,7 +245,6 @@
                 </label>
             </div>
 
-            <!-- Sección LLM (visible inicialmente) -->
             <div class="form-section" id="llm-section">
                 <label for="model">Selecciona un modelo:</label>
                 <select name="model" id="model" required>
@@ -255,8 +258,15 @@
                     {% endif %}
                 </select>
             </div>
+            
+            <div class="form-section" id="tts-section">
+                <label for="tts_speaker">Selecciona una voz:</label>
+                <select name="tts_speaker" id="tts_speaker">
+                    <option value="v3_es" selected>Voz Femenina</option>
+                    <option value="tux_v2">Voz Masculina</option>
+                </select>
+            </div>
 
-            <!-- Campo de texto común -->
             <div class="form-section">
                 <label for="question" id="question-label">Tu consulta:</label>
                 <textarea
@@ -285,45 +295,53 @@
         const llmSection = document.getElementById('llm-section');
         const questionLabel = document.getElementById('question-label');
         const submitText = document.getElementById('submit-text');
-        
+        const modelSelect = document.getElementById('model');
+        // CAMBIO: Obtener referencia a la nueva sección TTS
+        const ttsSection = document.getElementById('tts-section');
+
         // Manejar cambios en el modo seleccionado
         function updateFormMode() {
             const isTTSMode = document.querySelector('input[name="mode"]:checked').value === 'tts';
-            
+
             // Actualizar clases activas
             llmOption.classList.toggle('active', !isTTSMode);
             ttsOption.classList.toggle('active', isTTSMode);
-            
+
             // Mostrar/ocultar secciones
             llmSection.style.display = isTTSMode ? 'none' : 'block';
-            
+            // CAMBIO: Mostrar/ocultar la sección de selección de voz TTS
+            ttsSection.style.display = isTTSMode ? 'block' : 'none';
+
+            // Deshabilitar el selector de LLM si está oculto para evitar errores de validación
+            modelSelect.disabled = isTTSMode;
+
             // Cambiar textos según el modo
             questionLabel.textContent = isTTSMode ? 'Texto a convertir a voz:' : 'Tu consulta:';
             submitText.textContent = isTTSMode ? 'Generar Audio' : 'Generar Respuesta';
         }
-        
+
         // Event listeners
         llmOption.addEventListener('click', function() {
             document.querySelector('input[name="mode"][value="llm"]').checked = true;
             updateFormMode();
         });
-        
+
         ttsOption.addEventListener('click', function() {
             document.querySelector('input[name="mode"][value="tts"]').checked = true;
             updateFormMode();
         });
-        
+
         // Manejar envío del formulario
         document.getElementById('main-form').addEventListener('submit', function() {
             const submitBtn = document.getElementById('submit-btn');
             const submitText = document.getElementById('submit-text');
             const loadingIndicator = document.getElementById('loading-indicator');
-            
+
             submitBtn.disabled = true;
             submitText.style.display = 'none';
             loadingIndicator.style.display = 'inline';
         });
-        
+
         // Inicializar
         updateFormMode();
     </script>

@@ -36,7 +36,6 @@ def nl2br(value):
 app.jinja_env.filters['nl2br'] = nl2br
 
 # Inicialización de modelos
-tts_model = None
 vits_model = None
 logging.info("Sistema de TTS inicializado (carga bajo demanda)")
 
@@ -84,7 +83,7 @@ def get_vits_model():
             repo_or_dir='snakers4/silero-models',
             model='silero_tts',
             language='es',
-            speaker='v3_es', 
+            speaker='v3_es',
             trust_repo=True,
             verbose=True
         )
@@ -97,11 +96,12 @@ def get_vits_model():
         # Prueba de generación de audio
         with torch.no_grad():
             test_text = "Prueba de audio exitosa"
+            # ---> CORRECCIÓN: Usar una voz válida para la prueba.
             test_audio = vits_model.apply_tts(text=test_text, speaker='es_0')
-            
+
             if not isinstance(test_audio, torch.Tensor):
                 raise RuntimeError("El modelo no generó tensor de audio válido")
-            
+
             if test_audio.dim() != 1 or test_audio.numel() == 0:
                 raise RuntimeError("Audio generado no válido")
 
@@ -126,7 +126,7 @@ def index():
     # Verificar Ollama
     ollama_available = check_ollama_connection()
     model_names = get_ollama_models() if ollama_available else []
-    
+
     if not ollama_available:
         error_message = "Ollama no está disponible. Por favor inicia el servicio."
     elif not model_names:
@@ -149,7 +149,7 @@ def index():
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    """Versión mejorada con mejor manejo de errores"""
+    """Versión mejorada con mejor manejo de errores y selección de voz TTS"""
     data = request.form
     question = data.get('question', '').strip()
     selected_model = data.get('model')
@@ -164,15 +164,19 @@ def ask():
     # Modo TTS
     if mode == 'tts':
         try:
+            # ---> CAMBIO: Obtiene la voz seleccionada del formulario
+            selected_speaker = request.form.get('tts_speaker', 'v3_es')
+
             model = get_vits_model()
             if model is None:
                 raise RuntimeError("Modelo de voz no disponible. Verifica los logs para más información.")
 
-            logging.info(f"Generando audio para texto: {question[:50]}...")
+            logging.info(f"Generando audio para texto: {question[:50]}... (Voz: {selected_speaker})")
 
             # Generación de audio
             with torch.no_grad():
-                audio = model.apply_tts(text=question[:MAX_TTS_LENGTH], speaker='es_0')
+                # ---> CAMBIO: Usa la voz seleccionada
+                audio = model.apply_tts(text=question[:MAX_TTS_LENGTH], speaker=selected_speaker)
                 if audio.numel() == 0:
                     raise RuntimeError("El modelo generó audio vacío")
 
@@ -187,12 +191,13 @@ def ask():
 
             audio_base64 = base64.b64encode(audio_data.read()).decode('utf-8')
             logging.info("Audio generado exitosamente")
-            
+
             return render_template(
                 'response.html',
                 response=audio_base64,
                 question=question,
-                model="VITS (Silero)",
+                # ---> CAMBIO: Pasa la voz usada a la plantilla de respuesta
+                model=f"Voz {selected_speaker}",
                 mode=mode
             )
 
@@ -242,7 +247,7 @@ def ask():
 
 @app.route('/generate_tts', methods=['POST'])
 def generate_tts():
-    """Endpoint API mejorado para TTS"""
+    """Endpoint API mejorado para TTS con selección de voz"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
@@ -251,6 +256,9 @@ def generate_tts():
         text = data['text'].strip()[:MAX_TTS_LENGTH]
         if not text:
             return jsonify({"error": "Texto vacío"}), 400
+        
+        # ---> CAMBIO: Acepta un parámetro de voz desde el JSON
+        speaker = data.get('speaker', 'v3_es')
 
         model = get_vits_model()
         if not model:
@@ -258,7 +266,8 @@ def generate_tts():
 
         # Generación eficiente
         with torch.no_grad():
-            audio = model.apply_tts(text=text, speaker='es_0')
+            # ---> CAMBIO: Usa la voz seleccionada
+            audio = model.apply_tts(text=text, speaker=speaker)
             if audio.numel() == 0:
                 raise RuntimeError("El modelo generó audio vacío")
 
