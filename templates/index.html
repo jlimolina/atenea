@@ -16,13 +16,13 @@
         {% if error %}
             <div class="error-message"><strong>Error:</strong> {{ error }}</div>
         {% endif %}
-        
+
         <div class="info-box">
             <span class="info-icon">💡</span>
             <span>Selecciona un modo y escribe tu texto para interactuar con los modelos de IA</span>
         </div>
 
-        <form id="main-form" action="/ask" method="post">
+        <form id="main-form" action="{{ url_for('ask') }}" method="post">
             <div class="mode-selector">
                 <label class="mode-option llm active" id="llm-option">
                     <input type="radio" name="mode" value="llm" checked hidden> Modelo de Lenguaje (LLM)
@@ -39,7 +39,7 @@
                         <option value="" disabled selected>-- Elige un modelo --</option>
                         {% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}
                     {% else %}
-                        <option value="" disabled selected>-- No hay modelos --</option>
+                        <option value="" disabled selected>-- No hay modelos disponibles --</option>
                     {% endif %}
                 </select>
             </div>
@@ -68,13 +68,25 @@
                 <span id="loading-indicator" style="display:none;">Procesando...</span>
             </button>
         </form>
-         <footer>
+        
+        <footer>
             Atenea AI v2.0 | Sistema Multimodal LLM + TTS
         </footer>
+
+        <hr style="margin: 40px 0; border-color: #dee2e6;">
+
+        <div class="upload-section">
+            <h2>Añadir una nueva voz para clonar</h2>
+            <p>Sube un archivo <strong>.wav</strong> de 10-30 segundos con una voz clara y sin ruido de fondo para usarla como una nueva opción en el motor Coqui TTS.</p>
+            
+            <form action="{{ url_for('upload_voice') }}" method="post" enctype="multipart/form-data">
+                <input type="file" name="voice_file" accept=".wav" required>
+                <button type="submit" style="width: auto; padding: 10px 15px; margin-top: 10px;">Subir Voz</button>
+            </form>
+        </div>
     </div>
 
     <script>
-        // --- LÓGICA DE LA INTERFAZ DINÁMICA ---
         const llmSection = document.getElementById('llm-section');
         const ttsEngineSection = document.getElementById('tts-engine-section');
         const ttsSpeakerSection = document.getElementById('tts-speaker-section');
@@ -83,7 +95,7 @@
         const ttsEngineSelect = document.getElementById('tts_engine');
         const ttsSpeakerSelect = document.getElementById('tts_speaker');
 
-        // Definimos las voces disponibles para cada motor
+        // Objeto JS que se construye dinámicamente con los datos de Flask
         const voicesByEngine = {
             'silero': {
                 'Voz Femenina 1': 'es_0',
@@ -91,14 +103,17 @@
                 'Voz Femenina 3': 'es_2',
             },
             'coqui': {
-                'Mi Voz Clonada 1': 'voices/voz_clonada_1.wav',
-                'Mi Voz Clonada 2': 'voices/voz_clonada_2.wav',
+                {% for voice_file in available_voices %}
+                    // La clave es el nombre del archivo sin extensión y con formato de título
+                    // El valor es la ruta completa al archivo
+                    '{{ voice_file.split(".")[0].replace("_", " ")|title }}': 'voices/{{ voice_file }}',
+                {% endfor %}
             }
         };
 
         function updateSpeakerOptions() {
             const selectedEngine = ttsEngineSelect.value;
-            ttsSpeakerSelect.innerHTML = ''; // Limpiar opciones anteriores
+            ttsSpeakerSelect.innerHTML = ''; 
 
             const availableVoices = voicesByEngine[selectedEngine];
             for (const name in availableVoices) {
@@ -111,35 +126,27 @@
         function updateFormMode() {
             const isTTSMode = document.querySelector('input[name="mode"]:checked').value === 'tts';
 
-            // Mostrar u ocultar las secciones correspondientes
             llmSection.style.display = isTTSMode ? 'none' : 'block';
             ttsEngineSection.style.display = isTTSMode ? 'block' : 'none';
             ttsSpeakerSection.style.display = isTTSMode ? 'block' : 'none';
 
-            // Habilitar/deshabilitar campos para que la validación 'required' funcione correctamente
             llmModelSelect.disabled = isTTSMode;
             ttsEngineSelect.disabled = !isTTSMode;
             ttsSpeakerSelect.disabled = !isTTSMode;
             
-            // Actualizar clases y textos
             document.getElementById('llm-option').classList.toggle('active', !isTTSMode);
             document.getElementById('tts-option').classList.toggle('active', isTTSMode);
             document.getElementById('question-label').textContent = isTTSMode ? 'Texto a convertir a voz:' : 'Tu consulta:';
             document.getElementById('submit-text').textContent = isTTSMode ? 'Generar Audio' : 'Generar Respuesta';
         }
         
-        // Manejar envío del formulario
         document.getElementById('main-form').addEventListener('submit', function() {
             const submitBtn = document.getElementById('submit-btn');
-            const submitText = document.getElementById('submit-text');
-            const loadingIndicator = document.getElementById('loading-indicator');
-
             submitBtn.disabled = true;
-            submitText.style.display = 'none';
-            loadingIndicator.style.display = 'inline';
+            submitBtn.querySelector('#submit-text').style.display = 'none';
+            submitBtn.querySelector('#loading-indicator').style.display = 'inline';
         });
 
-        // Event Listeners
         document.getElementById('llm-option').addEventListener('click', () => {
              document.querySelector('input[name="mode"][value="llm"]').checked = true;
              updateFormMode();
@@ -152,7 +159,6 @@
         
         ttsEngineSelect.addEventListener('change', updateSpeakerOptions);
 
-        // Inicialización
         updateFormMode();
         updateSpeakerOptions();
     </script>

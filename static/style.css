@@ -1,102 +1,134 @@
+/* --- Importación de la Fuente --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* --- Variables Globales de Diseño --- */
 :root {
-    --primary-color: #4361ee;
-    --secondary-color: #3f37c9;
-    --tts-color: #4cc9f0;
-    --llm-color: #4895ef;
+    --primary-color: #6a11cb;
+    --secondary-color: #2575fc;
+    --gradiente-principal: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    
+    --tts-color: #00c6ff;
+    --llm-color: #0072ff;
+    --gradiente-tts: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+    --gradiente-llm: linear-gradient(135deg, #4895ef 0%, #3f37c9 100%);
+    
     --error-color: #f72585;
-    --success-color: #4cc9f0;
-    --text-color: #2b2d42;
-    --light-bg: #f8f9fa;
-    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --text-color: #2c3e50;
+    --text-color-light: #576475;
+    --light-bg: #eef2f7;
+    --card-bg: rgba(255, 255, 255, 0.65);
+    
+    --border-color: rgba(200, 200, 220, 0.4);
+    --shadow-color: rgba(67, 97, 238, 0.15);
+    
+    --border-radius-md: 12px;
+    --border-radius-sm: 8px;
+    --transition-speed: 0.3s;
+}
+
+/* --- Estilos Base --- */
+* {
+    box-sizing: border-box;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding: 0;
-    background-color: var(--light-bg);
+    padding: 20px 0;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     color: var(--text-color);
-    line-height: 1.6;
+    line-height: 1.7;
+    font-weight: 400;
 }
 
+/* --- Contenedor Principal con Efecto Vidrio --- */
 .container {
     max-width: 800px;
     margin: 30px auto;
-    padding: 30px;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: var(--card-shadow);
+    padding: 40px;
+    background: var(--card-bg);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px 0 var(--shadow-color);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    animation: slide-in-fade 0.6s ease-out;
 }
 
+/* --- Encabezado y Títulos --- */
 header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 40px;
 }
 
 h1 {
-    color: var(--primary-color);
-    margin-bottom: 10px;
-    font-size: 2.5rem;
-    display: flex;
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    background: var(--gradiente-principal);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
+    gap: 15px;
 }
 
 .logo {
-    font-size: 2.8rem;
+    font-size: 3.5rem;
+    transition: transform var(--transition-speed) ease;
+}
+
+h1:hover .logo {
+    transform: rotate(15deg) scale(1.1);
 }
 
 .subtitle {
-    color: #6c757d;
+    color: var(--text-color-light);
     font-size: 1.1rem;
-    margin-bottom: 20px;
+    margin-top: 5px;
 }
 
+/* --- Selector de Modo Rediseñado --- */
 .mode-selector {
     display: flex;
-    margin-bottom: 25px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #dee2e6;
+    background-color: #e9ecef;
+    border-radius: var(--border-radius-md);
+    padding: 5px;
+    margin-bottom: 30px;
 }
 
 .mode-option {
     flex: 1;
-    padding: 15px;
+    padding: 12px 15px;
     text-align: center;
     cursor: pointer;
-    background-color: white;
-    transition: all 0.3s ease;
+    border-radius: var(--border-radius-sm);
+    transition: all var(--transition-speed) ease-in-out;
     font-weight: 500;
-}
-
-.mode-option:not(:last-child) {
-    border-right: 1px solid #dee2e6;
+    color: var(--text-color-light);
+    border: none;
+    background: transparent;
 }
 
 .mode-option.active {
-    background-color: var(--primary-color);
     color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transform: scale(1.03);
 }
 
 .mode-option.llm.active {
-    background-color: var(--llm-color);
+    background: var(--gradiente-llm);
 }
 
 .mode-option.tts.active {
-    background-color: var(--tts-color);
+    background: var(--gradiente-tts);
 }
 
-.mode-option:hover:not(.active) {
-    background-color: #f1f3f5;
-}
-
+/* --- Secciones y Formularios --- */
 .form-section {
     margin-bottom: 25px;
 }
 
-/* Ocultar secciones TTS por defecto */
 #tts-engine-section, #tts-speaker-section {
     display: none;
 }
@@ -106,21 +138,25 @@ label {
     margin-bottom: 8px;
     font-weight: 600;
     color: var(--text-color);
+    font-size: 0.9rem;
 }
 
 select, textarea {
     width: 100%;
     padding: 12px 15px;
-    border: 1px solid #ced4da;
-    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius-sm);
     font-size: 1rem;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    font-family: 'Poppins', sans-serif;
+    transition: all var(--transition-speed) ease;
 }
 
 select:focus, textarea:focus {
-    border-color: var(--primary-color);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--shadow-color);
+    background-color: white;
 }
 
 textarea {
@@ -128,78 +164,119 @@ textarea {
     resize: vertical;
 }
 
-button {
+/* --- Botón Principal --- */
+button[type="submit"] {
     width: 100%;
     padding: 14px;
-    background-color: var(--primary-color);
+    background: var(--gradiente-principal);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--border-radius-sm);
     font-size: 1.1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition-speed) ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
-button:hover {
-    background-color: var(--secondary-color);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+button[type="submit"]:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+button[type="submit"]:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* --- Alertas y Cajas de Información --- */
+.error-message, .info-box {
+    padding: 15px 20px;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 25px;
+    border-left: 5px solid;
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .error-message {
-    padding: 15px;
-    background-color: #fee2e2;
-    color: var(--error-color);
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid var(--error-color);
+    background-color: #fff0f3;
+    color: #d90429;
+    border-color: var(--error-color);
 }
 
 .info-box {
-    padding: 15px;
-    background-color: #e6f2ff;
-    border-radius: 8px;
-    margin-bottom: 25px;
-    border-left: 4px solid var(--primary-color);
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    background-color: #eaf5ff;
+    border-color: var(--secondary-color);
 }
 
 .info-icon {
     font-size: 1.5rem;
 }
 
+/* --- Sección de Subida de Archivos --- */
+.upload-section {
+    margin-top: 30px;
+    padding: 25px;
+    background: rgba(233, 236, 239, 0.5);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--border-radius-md);
+    text-align: center;
+}
+.upload-section h2 {
+    margin-top: 0;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+.upload-section p {
+    font-size: 0.9rem;
+    color: var(--text-color-light);
+    max-width: 600px;
+    margin: 10px auto 20px;
+}
+.upload-section button {
+    background: #34495e;
+    width: auto;
+    padding: 10px 20px;
+    margin-top: 10px;
+}
+.upload-section button:hover {
+    background: #2c3e50;
+}
+
+/* --- Pie de Página --- */
 footer {
     text-align: center;
-    margin-top: 30px;
-    color: #6c757d;
+    margin-top: 40px;
+    color: var(--text-color-light);
     font-size: 0.9rem;
 }
 
+/* --- Media Queries para Responsividad --- */
 @media (max-width: 768px) {
     .container {
         padding: 20px;
         margin: 15px;
     }
-
     h1 {
-        font-size: 2rem;
+        font-size: 2.2rem;
     }
-
-    .mode-option {
-        padding: 12px 8px;
-        font-size: 0.9rem;
+    .logo {
+        font-size: 2.5rem;
     }
 }
 
-/* Animaciones */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.container {
-    animation: fadeIn 0.5s ease-out;
+/* --- Animaciones --- */
+@keyframes slide-in-fade {
+    from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
 }
