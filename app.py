@@ -18,6 +18,9 @@ from functools import wraps
 from TTS.api import TTS
 from torch.serialization import safe_globals
 from TTS.tts.configs.xtts_config import XttsConfig
+# Importar las clases de configuración necesarias
+from TTS.tts.models.xtts import XttsAudioConfig, XttsArgs
+from TTS.config.shared_configs import BaseDatasetConfig
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
 
@@ -55,8 +58,11 @@ def get_coqui_model():
         return coqui_xtts_model
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logging.info(f"Cargando modelo Coqui TTS en dispositivo: {device}. ¡Puede tardar la primera vez!")
-    with safe_globals([XttsConfig]):
+
+    # CORRECCIÓN: Se añaden TODAS las clases de configuración necesarias a la lista segura.
+    with safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig, XttsArgs]):
         model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+
     coqui_xtts_model = model
     logging.info("Modelo Coqui TTS cargado.")
     return coqui_xtts_model
@@ -107,7 +113,7 @@ def index():
         voice_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.endswith('.wav')]
     except FileNotFoundError:
         voice_files = []
-    
+
     return render_template(
         'index.html',
         models=installed_models,
@@ -217,25 +223,25 @@ def download_model():
     def generate_stream():
         command = ["ollama", "pull", model_name]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', bufsize=1)
-        
+
         progress_regex = re.compile(r'(\d+)\s*%')
 
         for line in iter(process.stdout.readline, ''):
             clean_line = line.strip()
             progress_match = progress_regex.search(clean_line)
-            
+
             response_data = {}
             if progress_match:
                 percent = int(progress_match.group(1))
                 response_data = {"type": "progress", "percent": percent, "status": clean_line}
             else:
                 response_data = {"type": "log", "message": clean_line}
-            
+
             yield f"data: {json.dumps(response_data)}\n\n"
-        
+
         process.stdout.close()
         return_code = process.wait()
-        
+
         final_status = {"type": "done", "success": return_code == 0}
         yield f"data: {json.dumps(final_status)}\n\n"
         yield "event: close\ndata: close\n\n"
@@ -249,4 +255,4 @@ def system_status():
 
 if __name__ == '__main__':
     print("\n" + "="*50 + "\nAtenea - Servicio Multimodal de IA\n" + "="*50)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5100, debug=True)
