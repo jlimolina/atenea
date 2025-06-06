@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #-----------------------------------------------------------------------
-# Instalador Automático para la Aplicación "Atenea"
-# Este script prepara un servidor Linux (basado en Debian/Ubuntu)
-# para desplegar la aplicación Flask con Gunicorn y Nginx.
+# Instalador Automático para la Aplicación "Atenea" v2.0
+# Prepara un servidor, instala Ollama, y despliega la aplicación
+# con Gunicorn y Nginx.
 #
 # USO:
 # 1. Sube tu proyecto a un servidor (ej. con 'git clone').
@@ -15,7 +15,7 @@
 # Salir inmediatamente si un comando falla
 set -e
 
-echo "--- 🚀 Iniciando el instalador de Atenea AI 🚀 ---"
+echo "--- 🚀 Iniciando el instalador de Atenea AI (con Ollama) 🚀 ---"
 echo "Este script configurará el servidor para producción."
 
 # --- PASO 1: Recopilar información del usuario ---
@@ -41,31 +41,48 @@ then
 fi
 
 # --- PASO 2: Instalar dependencias del sistema ---
-echo -e "\n--- 📦 Instalando dependencias del sistema (Nginx, Python, Git) ---"
+echo -e "\n--- 📦 Instalando dependencias del sistema (Nginx, Python, Git, Curl) ---"
 sudo apt-get update
-sudo apt-get install -y python3.11 python3.11-venv nginx git
+sudo apt-get install -y python3.11 python3.11-venv nginx git curl
 
-# --- PASO 3: Configurar el entorno de Python ---
+# --- PASO 3: Instalar y configurar Ollama ---
+echo -e "\n--- 🦙 Instalando y configurando Ollama ---"
+# Comprobamos si el comando 'ollama' ya existe
+if command -v ollama &> /dev/null
+then
+    echo "Ollama ya está instalado. Saltando la instalación."
+else
+    echo "Ollama no encontrado. Descargando e instalando con el script oficial..."
+    curl -fsSL https://ollama.com/install.sh | sh
+fi
+# El script de instalación de Ollama ya crea y habilita el servicio systemd,
+# pero nos aseguramos de que esté activo.
+echo "Asegurando que el servicio de Ollama esté en ejecución y habilitado..."
+sudo systemctl daemon-reload
+sudo systemctl enable ollama
+sudo systemctl start ollama
+
+# --- PASO 4: Configurar el entorno de Python ---
 echo -e "\n--- 🐍 Configurando el entorno virtual de Python ---"
 echo "Creando entorno virtual en 'venv'..."
 python3.11 -m venv venv
 
 echo "Activando entorno e instalando dependencias de Python..."
-source venv/bin/activate
-pip install -r requirements.txt
-deactivate # Desactivamos para que los siguientes pasos usen rutas absolutas
+# Usamos la ruta absoluta al pip del venv para evitar problemas
+"$PROJECT_DIR/venv/bin/pip" install -r requirements.txt
 
 echo "Entorno de Python listo."
 
-# --- PASO 4: Configurar el servicio de systemd ---
-echo -e "\n--- ⚙️ Configurando Gunicorn con systemd para ejecutar la app en segundo plano ---"
+# --- PASO 5: Configurar el servicio de systemd para Atenea ---
+echo -e "\n--- ⚙️ Configurando Gunicorn con systemd para la app Atenea ---"
 
-# Usamos 'cat' con un Here Document (EOF) para crear el archivo de servicio dinámicamente
-# Usamos 'tee' para escribir el archivo con permisos de sudo
+# Creamos el archivo de servicio.
+# Añadimos 'Requires' y 'After' para que espere a Ollama.
 cat <<EOF | sudo tee /etc/systemd/system/atenea.service
 [Unit]
 Description=Gunicorn instance para servir la aplicación Atenea
-After=network.target
+Requires=ollama.service
+After=network.target ollama.service
 
 [Service]
 User=$CURRENT_USER
@@ -73,6 +90,7 @@ Group=www-data
 WorkingDirectory=$PROJECT_DIR
 Environment="PATH=$PROJECT_DIR/venv/bin"
 ExecStart=$PROJECT_DIR/venv/bin/gunicorn --workers 3 --bind unix:atenea.sock -m 007 app:app
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
@@ -80,15 +98,14 @@ EOF
 
 echo "Iniciando y habilitando el servicio 'atenea'..."
 sudo systemctl daemon-reload
-sudo systemctl start atenea
+sudo systemctl restart atenea # Usamos restart para aplicar cambios si ya existía
 sudo systemctl enable atenea
 
-echo "Servicio systemd configurado y en ejecución."
+echo "Servicio de Atenea configurado y en ejecución."
 
-# --- PASO 5: Configurar Nginx como Reverse Proxy ---
+# --- PASO 6: Configurar Nginx como Reverse Proxy ---
 echo -e "\n--- 🌐 Configurando Nginx como servidor web (Reverse Proxy) ---"
 
-# Creamos el archivo de configuración de Nginx
 cat <<EOF | sudo tee /etc/nginx/sites-available/atenea
 server {
     listen 80;
@@ -121,4 +138,6 @@ sudo systemctl restart nginx
 # --- Finalización ---
 echo -e "\n--- ✅ ¡Instalación completada! ---"
 echo "Tu aplicación Atenea ahora debería estar accesible en: http://$DOMAIN_NAME"
-echo "Puedes comprobar el estado del servicio con: sudo systemctl status atenea"
+echo "Puedes comprobar el estado de los servicios con:"
+echo "sudo systemctl status atenea"
+echo "sudo systemctl status ollama"
