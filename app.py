@@ -59,7 +59,7 @@ def get_coqui_model():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logging.info(f"Cargando modelo Coqui TTS en dispositivo: {device}. ¡Puede tardar la primera vez!")
     
-    # CORRECCIÓN: Se añaden TODAS las clases de configuración necesarias a la lista segura.
+    # Se añaden TODAS las clases de configuración necesarias a la lista segura para PyTorch.
     with safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig, XttsArgs]):
         model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
         
