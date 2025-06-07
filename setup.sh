@@ -1,11 +1,11 @@
 #!/bin/bash
 
 #-----------------------------------------------------------------------
-# Instalador Automático de Producción para "Atenea" v5.0
+# Instalador Automático de Producción para "Atenea" v5.1
 #
 # DESPLIEGUE PROFESIONAL: Mueve la aplicación a /var/www, instala
 # dependencias, configura Ollama, y despliega con Gunicorn y Nginx,
-# solucionando definitivamente los problemas de permisos.
+# solucionando definitivamente los problemas de permisos y de PATH.
 #-----------------------------------------------------------------------
 
 # Salir inmediatamente si un comando falla para evitar instalaciones parciales.
@@ -91,7 +91,8 @@ After=network.target ollama.service
 User=$CURRENT_USER
 Group=www-data
 WorkingDirectory=$PROJECT_DIR
-Environment="PATH=$PROJECT_DIR/venv/bin"
+# CORRECCIÓN: Se añade el PATH del sistema para que el proceso pueda encontrar 'ollama'.
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:$PROJECT_DIR/venv/bin"
 ExecStart=$PROJECT_DIR/venv/bin/gunicorn --workers 3 --bind unix:/run/atenea.sock -m 007 --timeout 120 app:app
 Restart=always
 
