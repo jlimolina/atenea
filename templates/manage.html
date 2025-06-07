@@ -19,24 +19,24 @@
 
         <div class="download-section">
             <h2>Catálogo de Modelos Disponibles</h2>
-            <div id="model-catalog-list">
-                {% for catalog_model in catalog_models %}
-                    <div class="model-card">
-                        <div class="model-info">
-                            <h4>{{ catalog_model.name }}</h4>
-                            <p>{{ catalog_model.description }} (Tamaño: {{ catalog_model.size }})</p>
-                        </div>
-                        <div class="model-action">
-                            {% if catalog_model.name in models %}
-                                <button class="installed-btn" disabled>✅ Instalado</button>
-                            {% else %}
-                                <button class="download-btn" data-model-name="{{ catalog_model.name }}">Descargar</button>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
+
+            <!-- Nuevo selector de familia de modelos -->
+            <div class="form-section">
+                <label for="model-family-select">Selecciona una familia de modelos:</label>
+                <select id="model-family-select">
+                    <option value="">-- Elige una familia --</option>
+                    {% for family_name in grouped_models.keys()|sort %}
+                        <option value="{{ family_name }}">{{ family_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             
+            <!-- Contenedor para la lista de modelos que se llenará con JS -->
+            <div id="model-catalog-list">
+                <!-- Las tarjetas de modelo se insertarán aquí dinámicamente -->
+            </div>
+            
+            <!-- Contenedor para la barra de progreso -->
             <div id="download-progress-container" style="display: none; margin-top: 20px;">
                 <h4 id="progress-title"></h4>
                 <div class="progress-bar-container">
@@ -51,70 +51,113 @@
     </div>
 
     <script>
-        const downloadButtons = document.querySelectorAll('.download-btn');
+        // Pasa los datos agrupados de Flask a JavaScript de forma segura
+        const groupedModels = {{ grouped_models|tojson|safe }};
+        const installedModels = {{ models|tojson|safe }};
+
+        const familySelect = document.getElementById('model-family-select');
+        const catalogList = document.getElementById('model-catalog-list');
         const progressContainer = document.getElementById('download-progress-container');
         const progressTitle = document.getElementById('progress-title');
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
         const progressOutput = document.getElementById('download-progress-output');
 
-        downloadButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const modelName = this.dataset.modelName;
-                
-                downloadButtons.forEach(btn => { btn.disabled = true; btn.style.cursor = 'not-allowed'; });
-                button.textContent = 'Descargando...';
+        function displayModelsForFamily(familyName) {
+            catalogList.innerHTML = ''; // Limpiar la lista actual
+            if (!familyName || !groupedModels[familyName]) {
+                return;
+            }
 
-                progressTitle.textContent = `Descargando ${modelName}...`;
-                progressOutput.textContent = '';
-                progressBar.style.width = '0%';
-                progressBar.style.background = '';
-                progressText.textContent = '0%';
-                progressContainer.style.display = 'block';
+            const models = groupedModels[familyName];
+            models.forEach(model => {
+                const isInstalled = installedModels.includes(model.name);
+                const buttonHtml = isInstalled 
+                    ? `<button class="installed-btn" disabled>✅ Instalado</button>`
+                    : `<button class="download-btn" data-model-name="${model.name}">Descargar</button>`;
 
-                const eventSource = new EventSource(`/download_model?model_name=${modelName}`);
-
-                eventSource.onmessage = function(event) {
-                    const data = JSON.parse(event.data);
-
-                    if (data.type === 'progress') {
-                        progressBar.style.width = data.percent + '%';
-                        progressText.textContent = data.percent + '%';
-                        progressOutput.textContent += data.status + '\n';
-                    } else if (data.type === 'log') {
-                        progressOutput.textContent += data.message + '\n';
-                    } else if (data.type === 'done') {
-                        if (data.success) {
-                            progressTitle.textContent = '¡Descarga Completada!';
-                            progressBar.style.width = '100%';
-                            progressText.textContent = '100%';
-                            progressBar.style.background = '#2ecc71';
-                        } else {
-                            progressTitle.textContent = 'Error en la Descarga';
-                            progressBar.style.background = '#e74c3c';
-                        }
-                    }
-                    progressOutput.scrollTop = progressOutput.scrollHeight;
-                };
-
-                eventSource.addEventListener('close', function() {
-                    eventSource.close();
-                    setTimeout(() => { window.location.reload(); }, 3000);
-                });
-
-                eventSource.onerror = function() {
-                    progressOutput.textContent += '\n--- Error de conexión. La descarga ha sido interrumpida. ---\n';
-                    eventSource.close();
-                    downloadButtons.forEach(btn => {
-                        if (!btn.classList.contains('installed-btn')) {
-                            btn.disabled = false;
-                            btn.textContent = 'Descargar';
-                            btn.style.cursor = 'pointer';
-                        }
-                    });
-                };
+                const cardHtml = `
+                    <div class="model-card">
+                        <div class="model-info">
+                            <h4>${model.name}</h4>
+                            <p>${model.description} (Tamaño: ${model.size})</p>
+                        </div>
+                        <div class="model-action">
+                            ${buttonHtml}
+                        </div>
+                    </div>
+                `;
+                catalogList.insertAdjacentHTML('beforeend', cardHtml);
             });
+
+            // Re-asignar los event listeners a los nuevos botones de descarga
+            addDownloadListeners();
+        }
+
+        function addDownloadListeners() {
+            document.querySelectorAll('.download-btn').forEach(button => {
+                // Se usa 'onclick' para asegurar que el listener se reasigne correctamente
+                button.onclick = handleDownloadClick;
+            });
+        }
+
+        function handleDownloadClick(event) {
+            const button = event.currentTarget;
+            const modelName = button.dataset.modelName;
+            
+            document.querySelectorAll('.download-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.style.cursor = 'not-allowed';
+            });
+            button.textContent = 'Descargando...';
+
+            progressTitle.textContent = `Descargando ${modelName}...`;
+            progressOutput.textContent = '';
+            progressBar.style.width = '0%';
+            progressBar.style.background = '';
+            progressText.textContent = '0%';
+            progressContainer.style.display = 'block';
+
+            const eventSource = new EventSource(`/download_model?model_name=${modelName}`);
+            
+            eventSource.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.type === 'progress') {
+                    progressBar.style.width = data.percent + '%';
+                    progressText.textContent = data.percent + '%';
+                    progressOutput.textContent += data.status + '\n';
+                } else if (data.type === 'log') {
+                    progressOutput.textContent += data.message + '\n';
+                } else if (data.type === 'done') {
+                    if (data.success) {
+                        progressTitle.textContent = '¡Descarga Completada!';
+                        progressBar.style.width = '100%';
+                        progressText.textContent = '100%';
+                        progressBar.style.background = '#2ecc71';
+                    } else {
+                        progressTitle.textContent = 'Error en la Descarga';
+                        progressBar.style.background = '#e74c3c';
+                    }
+                }
+                progressOutput.scrollTop = progressOutput.scrollHeight;
+            };
+
+            eventSource.addEventListener('close', () => {
+                eventSource.close();
+                setTimeout(() => window.location.reload(), 3000);
+            });
+
+            eventSource.onerror = () => {
+                progressOutput.textContent += '\n--- Error de conexión. ---\n';
+                eventSource.close();
+            };
+        }
+
+        familySelect.addEventListener('change', (event) => {
+            displayModelsForFamily(event.target.value);
         });
+
     </script>
 </body>
 </html>
+

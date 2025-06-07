@@ -6,25 +6,25 @@
     --primary-color: #6a11cb;
     --secondary-color: #2575fc;
     --gradiente-principal: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    
+
     --tts-color: #00c6ff;
     --gradiente-tts: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
-    
+
     --llm-color: #0072ff;
     --gradiente-llm: linear-gradient(135deg, #4895ef 0%, #3f37c9 100%);
 
     --t2i-color: #ff8c00;
     --gradiente-t2i: linear-gradient(135deg, #ff8c00 0%, #ff4500 100%);
-    
+
     --error-color: #f72585;
     --text-color: #2c3e50;
     --text-color-light: #576475;
     --light-bg: #eef2f7;
     --card-bg: rgba(255, 255, 255, 0.65);
-    
+
     --border-color: rgba(200, 200, 220, 0.4);
     --shadow-color: rgba(67, 97, 238, 0.15);
-    
+
     --border-radius-md: 12px;
     --border-radius-sm: 8px;
     --transition-speed: 0.3s;
@@ -353,6 +353,18 @@ footer a:hover {
 }
 .model-card .download-btn:hover {
     opacity: 0.85;
+}
+
+/* --- Estilos para el selector de familia de modelos --- */
+#model-family-select {
+    margin-bottom: 20px;
+    font-weight: 500;
+    background-color: white;
+    border: 1px solid var(--border-color) !important;
+}
+
+#model-catalog-list {
+    margin-top: 10px;
 }
 
 /* --- Estilos para la Barra de Progreso --- */

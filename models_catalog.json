@@ -1,67 +1,108 @@
-[
-    {
-        "name": "deepseek-r1:latest",
-        "description": "Versión más reciente del modelo Deepseek, un modelo de lenguaje de alto rendimiento.",
-        "size": "5.2 GB"
-    },
-    {
-        "name": "deepseek-r1:1.5b",
-        "description": "Versión ultraligera de 1.5 mil millones de parámetros, ideal para tareas rápidas y entornos con recursos limitados.",
-        "size": "1.1 GB"
-    },
-    {
-        "name": "deepseek-r1:7b",
-        "description": "Modelo de 7 mil millones de parámetros, un excelente equilibrio entre rendimiento y uso de recursos.",
-        "size": "4.7 GB"
-    },
-    {
-        "name": "deepseek-r1:8b",
-        "description": "Modelo de 8 mil millones de parámetros, una alternativa potente y versátil para chat y otras tareas.",
-        "size": "5.2 GB"
-    },
-    {
-        "name": "deepseek-r1:14b",
-        "description": "Modelo de 14 mil millones de parámetros para tareas más complejas que requieren un mayor razonamiento.",
-        "size": "9.0 GB"
-    },
-    {
-        "name": "deepseek-r1:32b",
-        "description": "Modelo grande de 32 mil millones de parámetros, requiere una cantidad significativa de RAM y/o VRAM.",
-        "size": "20 GB"
-    },
-    {
-        "name": "qwen3:0.6b",
-        "description": "Modelo Qwen3 ultraligero de 0.6B parámetros, excelente para dispositivos con muy pocos recursos.",
-        "size": "523 MB"
-    },
-    {
-        "name": "qwen3:1.7b",
-        "description": "Versión ligera de 1.7B parámetros, muy rápida para tareas sencillas y de chat.",
-        "size": "1.4 GB"
-    },
-    {
-        "name": "qwen3:4b",
-        "description": "Modelo Qwen3 de 4B parámetros, un buen punto de entrada con capacidades sólidas.",
-        "size": "2.6 GB"
-    },
-    {
-        "name": "qwen3:8b",
-        "description": "La versión de 8B, a menudo la 'latest'. Un modelo muy competente para una gran variedad de tareas.",
-        "size": "5.2 GB"
-    },
-    {
-        "name": "qwen3:14b",
-        "description": "Modelo Qwen3 de 14B parámetros, ofrece un razonamiento más avanzado y mejores capacidades multilingües.",
-        "size": "9.3 GB"
-    },
-    {
-        "name": "devstral:24b",
-        "description": "Un modelo de 24B (MoE) basado en Mistral, afinado específicamente para tareas de desarrollo de software y código.",
-        "size": "14 GB"
-    },
-    {
-        "name": "phi4:14b",
-        "description": "El potente modelo Phi-3 de Microsoft en su versión de 14B. Ofrece un rendimiento sorprendente para su tamaño y una ventana de contexto de 16K.",
-        "size": "9.1GB"
-    }
-]
+{
+    "deepseek-r1": [
+        {
+            "name": "deepseek-r1:latest",
+            "description": "Versión más reciente del modelo Deepseek, un modelo de lenguaje de alto rendimiento.",
+            "size": "5.2 GB"
+        },
+        {
+            "name": "deepseek-r1:1.5b",
+            "description": "Versión ultraligera de 1.5 mil millones de parámetros, ideal para tareas rápidas.",
+            "size": "1.1 GB"
+        },
+        {
+            "name": "deepseek-r1:7b",
+            "description": "Modelo de 7 mil millones de parámetros, un excelente equilibrio entre rendimiento y recursos.",
+            "size": "4.7 GB"
+        },
+        {
+            "name": "deepseek-r1:8b",
+            "description": "Modelo de 8 mil millones de parámetros, una alternativa potente y versátil para chat.",
+            "size": "5.2 GB"
+        },
+        {
+            "name": "deepseek-r1:14b",
+            "description": "Modelo de 14 mil millones de parámetros para tareas más complejas que requieren mayor razonamiento.",
+            "size": "9.0 GB"
+        },
+        {
+            "name": "deepseek-r1:32b",
+            "description": "Modelo grande de 32 mil millones de parámetros, requiere una cantidad significativa de RAM/VRAM.",
+            "size": "20 GB"
+        }
+    ],
+    "qwen3": [
+        {
+            "name": "qwen3:0.6b",
+            "description": "Modelo Qwen3 ultraligero de 0.6B parámetros, excelente para dispositivos con muy pocos recursos.",
+            "size": "523 MB"
+        },
+        {
+            "name": "qwen3:1.7b",
+            "description": "Versión ligera de 1.7B parámetros, muy rápida para tareas sencillas y de chat.",
+            "size": "1.4 GB"
+        },
+        {
+            "name": "qwen3:4b",
+            "description": "Modelo Qwen3 de 4B parámetros, un buen punto de entrada con capacidades sólidas.",
+            "size": "2.6 GB"
+        },
+        {
+            "name": "qwen3:8b",
+            "description": "La versión de 8B, a menudo la 'latest'. Un modelo muy competente para una gran variedad de tareas.",
+            "size": "5.2 GB"
+        },
+        {
+            "name": "qwen3:14b",
+            "description": "Modelo Qwen3 de 14B parámetros, ofrece un razonamiento más avanzado y mejores capacidades multilingües.",
+            "size": "9.3 GB"
+        }
+    ],
+    "qwen2.5-coder": [
+        {
+            "name": "qwen2.5-coder:0.5b",
+            "description": "Modelo ultraligero de 0.5B especializado en código. Muy rápido.",
+            "size": "398 MB"
+        },
+        {
+            "name": "qwen2.5-coder:1.5b",
+            "description": "Versión ligera de 1.5B para tareas de programación.",
+            "size": "986 MB"
+        },
+        {
+            "name": "qwen2.5-coder:3b",
+            "description": "Modelo de 3B parámetros con un buen equilibrio para desarrollo.",
+            "size": "1.9 GB"
+        },
+        {
+            "name": "qwen2.5-coder:7b",
+            "description": "La versión de 7B (latest), un modelo de codificación muy competente.",
+            "size": "4.7 GB"
+        },
+        {
+            "name": "qwen2.5-coder:14b",
+            "description": "Modelo de 14B para tareas de codificación más complejas.",
+            "size": "9.0 GB"
+        },
+        {
+            "name": "qwen2.5-coder:32b",
+            "description": "Modelo grande de 32B para un rendimiento experto en programación.",
+            "size": "20 GB"
+        }
+    ],
+    "devstral": [
+        {
+            "name": "devstral:24b",
+            "description": "Un modelo de 24B (MoE) basado en Mistral, afinado específicamente para tareas de desarrollo de software y código.",
+            "size": "14 GB"
+        }
+    ],
+    "phi4": [
+        {
+            "name": "phi4:14b",
+            "description": "El potente modelo Phi-3 de Microsoft en su versión de 14B. Ofrece un rendimiento sorprendente para su tamaño.",
+            "size": "9.1GB"
+        }
+    ]
+}
+
