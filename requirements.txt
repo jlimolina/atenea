@@ -1,16 +1,14 @@
-# Framework y Servidor
+# Framework y Servidor de Producción
 Flask
 gunicorn
 
 # Cliente de Ollama
 ollama
 
-# Modelos de IA y Audio
+# Modelos de IA, Audio y Utilidades
 torch
 torchaudio
 TTS
+transformers==4.40.2
 psutil
 requests
-
-# Dependencias adicionales (si fueran necesarias)
-# nltk # Lo mantenemos comentado por si en el futuro reactivas el chunking
