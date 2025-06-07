@@ -25,41 +25,46 @@
         <form id="main-form" action="{{ url_for('ask') }}" method="post">
             <div class="mode-selector">
                 <label class="mode-option llm active" id="llm-option">
-                    <input type="radio" name="mode" value="llm" checked hidden> Modelo de Lenguaje (LLM)
+                    <input type="radio" name="mode" value="llm" checked hidden> LLM
                 </label>
                 <label class="mode-option tts" id="tts-option">
-                    <input type="radio" name="mode" value="tts" hidden> Texto a Voz (TTS)
+                    <input type="radio" name="mode" value="tts" hidden> TTS
+                </label>
+                <!-- Nuevo modo Texto a Imagen -->
+                <label class="mode-option t2i" id="t2i-option">
+                    <input type="radio" name="mode" value="text-to-image" hidden> Texto a Imagen
                 </label>
             </div>
 
+            <!-- Sección LLM -->
             <div class="form-section" id="llm-section">
                 <label for="model">Selecciona un modelo LLM instalado:</label>
                 <select name="model" id="model" required>
-                    {% if models %}
-                        <option value="" disabled selected>-- Elige un modelo --</option>
-                        {% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}
-                    {% else %}
-                        <option value="" disabled selected>-- No hay modelos instalados --</option>
-                    {% endif %}
+                    {% if models %}<option value="" disabled selected>-- Elige un modelo --</option>{% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}{% else %}<option value="" disabled selected>-- No hay modelos --</option>{% endif %}
                 </select>
             </div>
             
+            <!-- Sección TTS: Motor y Voz -->
             <div class="form-section" id="tts-engine-section">
                 <label for="tts_engine">Motor de Voz:</label>
-                <select name="tts_engine" id="tts_engine">
-                    <option value="silero">Silero</option>
-                    <option value="coqui">Coqui TTS (Clonación)</option>
+                <select name="tts_engine" id="tts_engine"><option value="silero">Silero</option><option value="coqui">Coqui TTS (Clonación)</option></select>
+            </div>
+            <div class="form-section" id="tts-speaker-section">
+                <label for="tts_speaker">Voz / Locutor:</label>
+                <select name="tts_speaker" id="tts_speaker" required></select>
+            </div>
+
+            <!-- Nueva sección Texto a Imagen -->
+            <div class="form-section" id="t2i-section">
+                <label for="image_engine">Motor de Imagen:</label>
+                <select name="image_engine" id="image_engine">
+                    <option value="stable-diffusion-1.5" selected>Stable Diffusion 1.5</option>
                 </select>
             </div>
 
-            <div class="form-section" id="tts-speaker-section">
-                <label for="tts_speaker">Voz / Locutor:</label>
-                <select name="tts_speaker" id="tts_speaker" required>
-                    </select>
-            </div>
-
+            <!-- Campo de texto común -->
             <div class="form-section">
-                <label for="question" id="question-label">Tu consulta:</label>
+                <label for="question" id="question-label">Tu consulta o prompt:</label>
                 <textarea name="question" id="question" minlength="3" required placeholder="Escribe tu texto aquí..."></textarea>
             </div>
 
@@ -69,7 +74,7 @@
             </button>
         </form>
         
-        <div class="upload-section" style="margin-top: 30px; border-top: 1px solid #e9ecef; padding-top: 30px;">
+         <div class="upload-section" style="margin-top: 30px; border-top: 1px solid #e9ecef; padding-top: 30px;">
             <h2>Añadir una nueva voz para clonar</h2>
             <p>Sube un archivo <strong>.wav</strong> para usarlo como una nueva opción en el motor Coqui TTS.</p>
             <form action="{{ url_for('upload_voice') }}" method="post" enctype="multipart/form-data">
@@ -77,10 +82,8 @@
                 <button type="submit" style="width: auto; padding: 10px 15px; margin-top: 10px;">Subir Voz</button>
             </form>
         </div>
-        
         <footer>
-            Atenea AI v2.0 | Sistema Multimodal LLM + TTS | 
-            <a href="{{ url_for('manage_page') }}">Gestionar Modelos</a>
+            Atenea AI v3.0 | Sistema Multimodal | <a href="{{ url_for('manage_page') }}">Gestionar Modelos</a>
         </footer>
     </div>
 
@@ -88,70 +91,80 @@
         const llmSection = document.getElementById('llm-section');
         const ttsEngineSection = document.getElementById('tts-engine-section');
         const ttsSpeakerSection = document.getElementById('tts-speaker-section');
-        
+        const t2iSection = document.getElementById('t2i-section');
+
         const llmModelSelect = document.getElementById('model');
         const ttsEngineSelect = document.getElementById('tts_engine');
         const ttsSpeakerSelect = document.getElementById('tts_speaker');
+        const imageEngineSelect = document.getElementById('image_engine');
 
         const voicesByEngine = {
-            'silero': {
-                'Voz Femenina 1': 'es_0',
-                'Voz Femenina 2': 'es_1',
-                'Voz Femenina 3': 'es_2',
-            },
-            'coqui': {
-                {% for voice_file in available_voices %}
-                    '{{ voice_file.split(".")[0].replace("_", " ")|title }}': 'voices/{{ voice_file }}',
-                {% endfor %}
-            }
+            'silero': { 'Voz Femenina 1': 'es_0', 'Voz Femenina 2': 'es_1', 'Voz Femenina 3': 'es_2' },
+            'coqui': {}
         };
+        {% for voice_file in available_voices %}
+            voicesByEngine.coqui['{{ voice_file.split(".")[0].replace("_", " ")|title }}'] = 'voices/{{ voice_file }}';
+        {% endfor %}
 
         function updateSpeakerOptions() {
             const selectedEngine = ttsEngineSelect.value;
             ttsSpeakerSelect.innerHTML = ''; 
             const availableVoices = voicesByEngine[selectedEngine];
             for (const name in availableVoices) {
-                const value = availableVoices[name];
-                ttsSpeakerSelect.add(new Option(name, value));
+                ttsSpeakerSelect.add(new Option(name, availableVoices[name]));
             }
         }
 
         function updateFormMode() {
-            const isTTSMode = document.querySelector('input[name="mode"]:checked').value === 'tts';
-            llmSection.style.display = isTTSMode ? 'none' : 'block';
-            ttsEngineSection.style.display = isTTSMode ? 'block' : 'none';
-            ttsSpeakerSection.style.display = isTTSMode ? 'block' : 'none';
-            llmModelSelect.disabled = isTTSMode;
-            ttsEngineSelect.disabled = !isTTSMode;
-            ttsSpeakerSelect.disabled = !isTTSMode;
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const isLLM = mode === 'llm';
+            const isTTS = mode === 'tts';
+            const isT2I = mode === 'text-to-image';
+
+            llmSection.style.display = isLLM ? 'block' : 'none';
+            ttsEngineSection.style.display = isTTS ? 'block' : 'none';
+            ttsSpeakerSection.style.display = isTTS ? 'block' : 'none';
+            t2iSection.style.display = isT2I ? 'block' : 'none';
+
+            llmModelSelect.disabled = !isLLM;
+            ttsEngineSelect.disabled = !isTTS;
+            ttsSpeakerSelect.disabled = !isTTS;
+            imageEngineSelect.disabled = !isT2I;
+
+            document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('active'));
+            document.getElementById(mode.replace('-to-','-') + '-option').classList.add('active');
             
-            document.getElementById('llm-option').classList.toggle('active', !isTTSMode);
-            document.getElementById('tts-option').classList.toggle('active', isTTSMode);
-            document.getElementById('question-label').textContent = isTTSMode ? 'Texto a convertir a voz:' : 'Tu consulta:';
-            document.getElementById('submit-text').textContent = isTTSMode ? 'Generar Audio' : 'Generar Respuesta';
+            let labelText = 'Tu consulta:';
+            if (isTTS) labelText = 'Texto a convertir a voz:';
+            if (isT2I) labelText = 'Describe la imagen que quieres generar (en inglés):';
+            document.getElementById('question-label').textContent = labelText;
+
+            let buttonText = 'Generar';
+            if (isLLM) buttonText = 'Generar Respuesta';
+            if (isTTS) buttonText = 'Generar Audio';
+            if (isT2I) buttonText = 'Generar Imagen';
+            document.getElementById('submit-text').textContent = buttonText;
         }
         
-        document.getElementById('main-form').addEventListener('submit', function() {
-            const submitBtn = document.getElementById('submit-btn');
-            submitBtn.disabled = true;
-            submitBtn.querySelector('#submit-text').style.display = 'none';
-            submitBtn.querySelector('#loading-indicator').style.display = 'inline';
-        });
-
-        document.getElementById('llm-option').addEventListener('click', () => {
-             document.querySelector('input[name="mode"][value="llm"]').checked = true;
-             updateFormMode();
-        });
-        
-        document.getElementById('tts-option').addEventListener('click', () => {
-             document.querySelector('input[name="mode"][value="tts"]').checked = true;
-             updateFormMode();
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.parentElement.addEventListener('click', () => {
+                radio.checked = true;
+                updateFormMode();
+            });
         });
         
         ttsEngineSelect.addEventListener('change', updateSpeakerOptions);
+        
+        document.getElementById('main-form').addEventListener('submit', function() {
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.querySelector('#submit-text').style.display = 'none';
+            btn.querySelector('#loading-indicator').style.display = 'inline';
+        });
 
         updateFormMode();
         updateSpeakerOptions();
     </script>
 </body>
 </html>
+

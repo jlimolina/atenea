@@ -8,9 +8,13 @@
     --gradiente-principal: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     
     --tts-color: #00c6ff;
-    --llm-color: #0072ff;
     --gradiente-tts: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+    
+    --llm-color: #0072ff;
     --gradiente-llm: linear-gradient(135deg, #4895ef 0%, #3f37c9 100%);
+
+    --t2i-color: #ff8c00;
+    --gradiente-t2i: linear-gradient(135deg, #ff8c00 0%, #ff4500 100%);
     
     --error-color: #f72585;
     --text-color: #2c3e50;
@@ -124,12 +128,43 @@ h1:hover .logo {
     background: var(--gradiente-tts);
 }
 
+.mode-option.t2i.active {
+    background: var(--gradiente-t2i);
+}
+
+/* --- Indicadores en Página de Respuesta --- */
+.mode-indicator {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-left: 10px;
+}
+.llm-indicator {
+    background-color: #eaf5ff;
+    color: #0072ff;
+}
+.tts-indicator {
+    background-color: #e6fcf5;
+    color: #00b894;
+}
+.t2i-indicator {
+    background-color: #fff2e6;
+    color: #d95f02;
+}
+.time-indicator {
+    font-size: 0.85rem;
+    color: var(--text-color-light);
+    margin-left: 10px;
+}
+
 /* --- Secciones y Formularios --- */
 .form-section {
     margin-bottom: 25px;
 }
 
-#tts-engine-section, #tts-speaker-section {
+#tts-engine-section, #tts-speaker-section, #t2i-section {
     display: none;
 }
 
@@ -164,7 +199,7 @@ textarea {
     resize: vertical;
 }
 
-/* --- Botón Principal y Enlaces --- */
+/* --- Botones y Enlaces --- */
 button, .back-link, .download-btn {
     width: 100%;
     padding: 14px;
@@ -198,25 +233,28 @@ button:disabled, .installed-btn {
 }
 
 /* --- Alertas y Cajas de Información --- */
-.error-message, .info-box {
+.error-message, .info-box, .response-box {
     padding: 15px 20px;
     border-radius: var(--border-radius-sm);
     margin-bottom: 25px;
     border-left: 5px solid;
-    display: flex;
-    align-items: center;
-    gap: 15px;
 }
-
+.response-box {
+    margin-top: 20px;
+    background: #f8f9fa;
+    border-color: #ced4da;
+}
 .error-message {
     background-color: #fff0f3;
     color: #d90429;
     border-color: var(--error-color);
 }
-
 .info-box {
     background-color: #eaf5ff;
     border-color: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .info-icon {
@@ -394,3 +432,4 @@ footer a:hover {
         transform: translateY(0); 
     }
 }
+

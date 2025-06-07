@@ -33,3 +33,5 @@ test_audio.wav
 
 # Directorio de caché de PyTorch/hub
 .cache/
+/voices/
+

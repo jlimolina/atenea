@@ -12,3 +12,5 @@ TTS
 transformers==4.40.2
 psutil
 requests
+diffusers
+accelerate

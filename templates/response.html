@@ -10,35 +10,36 @@
         <h1>
             <span class="logo">🦉</span>
             Respuesta de Atenea
-            <span class="mode-indicator {{ 'llm-indicator' if mode == 'llm' else 'tts-indicator' }}">
-                {{ 'LLM' if mode == 'llm' else 'TTS' }}
+            <span class="mode-indicator {{ 'llm-indicator' if mode == 'llm' else 't2i-indicator' if mode == 'text-to-image' else 'tts-indicator' }}">
+                {{ 'LLM' if mode == 'llm' else 'T2I' if mode == 'text-to-image' else 'TTS' }}
             </span>
         </h1>
 
         <div class="info-box question-box">
-            <strong>{{ 'Tu pregunta:' if mode == 'llm' else 'Texto convertido:' }}</strong>
+            <strong>{{ 'Tu prompt:' if mode == 'text-to-image' else 'Tu pregunta:' if mode == 'llm' else 'Texto convertido:' }}</strong>
             <p>{{ question }}</p>
         </div>
 
         {% if mode == 'llm' %}
             <div class="response-box">
                 <strong>Modelo utilizado:</strong> {{ model }}
-                <div class="response-text">
-                    {{ response | nl2br | safe }}
-                </div>
+                {% if elapsed_time is not none %}<span class="time-indicator">| <strong>Tiempo:</strong> {{ "%.2f"|format(elapsed_time) }}s</span>{% endif %}
+                <hr style="margin: 15px 0; border-color: #dee2e633;">
+                <div class="response-text">{{ response | nl2br | safe }}</div>
             </div>
-        {% else %}
+        {% elif mode == 'tts' %}
             <div class="response-box" style="text-align: center;">
                 <strong>Detalles del TTS:</strong> {{ model }}
-                <audio controls autoplay style="width: 100%; margin-top: 15px;">
-                    <source src="data:audio/wav;base64,{{ response }}" type="audio/wav">
-                    Tu navegador no soporta la reproducción de audio.
-                </audio>
-                <div>
-                    <a href="data:audio/wav;base64,{{ response }}" download="atenea_audio.wav" class="download-btn" style="margin-top: 20px;">
-                        Descargar Audio
-                    </a>
-                </div>
+                <audio controls autoplay style="width: 100%; margin-top: 15px;"><source src="data:audio/wav;base64,{{ response }}" type="audio/wav"></audio>
+                <div><a href="data:audio/wav;base64,{{ response }}" download="atenea_audio.wav" class="download-btn" style="margin-top: 20px;">Descargar Audio</a></div>
+            </div>
+        {% elif mode == 'text-to-image' %}
+            <div class="response-box">
+                <strong>Modelo utilizado:</strong> {{ model }}
+                 {% if elapsed_time is not none %}<span class="time-indicator">| <strong>Tiempo:</strong> {{ "%.2f"|format(elapsed_time) }}s</span>{% endif %}
+                 <hr style="margin: 15px 0; border-color: #dee2e633;">
+                <img src="data:image/png;base64,{{ response }}" alt="Imagen generada" style="width:100%; height:auto; border-radius: 8px;">
+                <div style="text-align:center;"><a href="data:image/png;base64,{{ response }}" download="atenea_imagen.png" class="download-btn" style="margin-top: 20px;">Descargar Imagen</a></div>
             </div>
         {% endif %}
 
@@ -46,15 +47,13 @@
     </div>
 
     <script>
-        // Intenta reproducir el audio automáticamente al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             const audioElement = document.querySelector('audio');
             if(audioElement) {
-                audioElement.play().catch(e => {
-                    console.log("La reproducción automática de audio fue bloqueada por el navegador.", e);
-                });
+                audioElement.play().catch(e => console.log("La reproducción automática de audio fue bloqueada."));
             }
         });
     </script>
 </body>
 </html>
+
