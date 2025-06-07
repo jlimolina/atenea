@@ -13,14 +13,15 @@
             <p class="subtitle">Tu asistente multimodal de inteligencia artificial</p>
         </header>
 
+        <!-- Barra de Navegación Principal -->
+        <nav class="main-nav">
+            <a href="{{ url_for('index') }}" class="nav-link active">Crear</a>
+            <a href="{{ url_for('manage_page') }}" class="nav-link">Gestionar Modelos</a>
+        </nav>
+
         {% if error %}
             <div class="error-message"><strong>Error:</strong> {{ error }}</div>
         {% endif %}
-
-        <div class="info-box">
-            <span class="info-icon">💡</span>
-            <span>Selecciona un modo, interactúa con los modelos o gestiona tu biblioteca de IA.</span>
-        </div>
 
         <form id="main-form" action="{{ url_for('ask') }}" method="post">
             <div class="mode-selector">
@@ -30,7 +31,6 @@
                 <label class="mode-option tts" id="tts-option">
                     <input type="radio" name="mode" value="tts" hidden> TTS
                 </label>
-                <!-- Nuevo modo Texto a Imagen -->
                 <label class="mode-option t2i" id="t2i-option">
                     <input type="radio" name="mode" value="text-to-image" hidden> Texto a Imagen
                 </label>
@@ -44,7 +44,7 @@
                 </select>
             </div>
             
-            <!-- Sección TTS: Motor y Voz -->
+            <!-- Secciones TTS -->
             <div class="form-section" id="tts-engine-section">
                 <label for="tts_engine">Motor de Voz:</label>
                 <select name="tts_engine" id="tts_engine"><option value="silero">Silero</option><option value="coqui">Coqui TTS (Clonación)</option></select>
@@ -54,7 +54,7 @@
                 <select name="tts_speaker" id="tts_speaker" required></select>
             </div>
 
-            <!-- Nueva sección Texto a Imagen -->
+            <!-- Sección Texto a Imagen -->
             <div class="form-section" id="t2i-section">
                 <label for="image_engine">Motor de Imagen:</label>
                 <select name="image_engine" id="image_engine">
@@ -74,7 +74,8 @@
             </button>
         </form>
         
-         <div class="upload-section" style="margin-top: 30px; border-top: 1px solid #e9ecef; padding-top: 30px;">
+         <!-- CORRECCIÓN: Se añade un ID a esta sección para poder controlarla con JS -->
+         <div class="upload-section" id="upload-voice-section" style="margin-top: 30px; border-top: 1px solid #e9ecef; padding-top: 30px;">
             <h2>Añadir una nueva voz para clonar</h2>
             <p>Sube un archivo <strong>.wav</strong> para usarlo como una nueva opción en el motor Coqui TTS.</p>
             <form action="{{ url_for('upload_voice') }}" method="post" enctype="multipart/form-data">
@@ -88,10 +89,12 @@
     </div>
 
     <script>
+        // --- Referencias a los Elementos del DOM ---
         const llmSection = document.getElementById('llm-section');
         const ttsEngineSection = document.getElementById('tts-engine-section');
         const ttsSpeakerSection = document.getElementById('tts-speaker-section');
         const t2iSection = document.getElementById('t2i-section');
+        const uploadVoiceSection = document.getElementById('upload-voice-section'); // CORRECCIÓN: Referencia a la nueva sección
 
         const llmModelSelect = document.getElementById('model');
         const ttsEngineSelect = document.getElementById('tts_engine');
@@ -121,29 +124,38 @@
             const isTTS = mode === 'tts';
             const isT2I = mode === 'text-to-image';
 
+            // Visibilidad de secciones
             llmSection.style.display = isLLM ? 'block' : 'none';
             ttsEngineSection.style.display = isTTS ? 'block' : 'none';
             ttsSpeakerSection.style.display = isTTS ? 'block' : 'none';
             t2iSection.style.display = isT2I ? 'block' : 'none';
+            uploadVoiceSection.style.display = isTTS ? 'block' : 'none'; // CORRECCIÓN: Mostrar solo en modo TTS
 
+            // Deshabilitar campos no activos para validación
             llmModelSelect.disabled = !isLLM;
             ttsEngineSelect.disabled = !isTTS;
             ttsSpeakerSelect.disabled = !isTTS;
             imageEngineSelect.disabled = !isT2I;
 
+            // Actualizar clases activas
             document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('active'));
-            document.getElementById(mode.replace('-to-','-') + '-option').classList.add('active');
+            const modeIdMap = { 'llm': 'llm-option', 'tts': 'tts-option', 'text-to-image': 't2i-option' };
+            document.getElementById(modeIdMap[mode]).classList.add('active');
             
-            let labelText = 'Tu consulta:';
-            if (isTTS) labelText = 'Texto a convertir a voz:';
-            if (isT2I) labelText = 'Describe la imagen que quieres generar (en inglés):';
-            document.getElementById('question-label').textContent = labelText;
-
-            let buttonText = 'Generar';
-            if (isLLM) buttonText = 'Generar Respuesta';
-            if (isTTS) buttonText = 'Generar Audio';
-            if (isT2I) buttonText = 'Generar Imagen';
-            document.getElementById('submit-text').textContent = buttonText;
+            // Actualizar textos
+            const questionLabel = document.getElementById('question-label');
+            const submitText = document.getElementById('submit-text');
+            
+            if (isLLM) {
+                questionLabel.textContent = 'Tu consulta:';
+                submitText.textContent = 'Generar Respuesta';
+            } else if (isTTS) {
+                questionLabel.textContent = 'Texto a convertir a voz:';
+                submitText.textContent = 'Generar Audio';
+            } else if (isT2I) {
+                questionLabel.textContent = 'Describe la imagen que quieres generar (en inglés):';
+                submitText.textContent = 'Generar Imagen';
+            }
         }
         
         document.querySelectorAll('input[name="mode"]').forEach(radio => {
@@ -162,6 +174,7 @@
             btn.querySelector('#loading-indicator').style.display = 'inline';
         });
 
+        // Inicialización
         updateFormMode();
         updateSpeakerOptions();
     </script>
