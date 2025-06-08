@@ -1,16 +1,13 @@
-# Framework y Servidor de Producción
 Flask
 gunicorn
 
-# Cliente de Ollama
 ollama
 
-# Modelos de IA, Audio y Utilidades
 torch
 torchaudio
-TTS
-transformers==4.40.2
+transformers==4.31.0
 psutil
 requests
 diffusers
 accelerate
+piper-tts
