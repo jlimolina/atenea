@@ -21,7 +21,9 @@ from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import XttsAudioConfig, XttsArgs
 from TTS.config.shared_configs import BaseDatasetConfig
 from diffusers import StableDiffusionPipeline
-
+# Nuevos imports para Piper TTS
+from piper.voice import PiperVoice
+from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
 
@@ -30,6 +32,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'voices'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs('piper_models', exist_ok=True) # Asegura que la carpeta para Piper exista
 
 OLLAMA_HOST = 'http://localhost:11434'
 LLM_TIMEOUT = 180
@@ -42,6 +45,7 @@ app.jinja_env.filters['nl2br'] = nl2br
 silero_vits_model = None
 coqui_xtts_model = None
 sd_pipeline = None
+piper_tts_model = None # Caché para el modelo Piper
 
 # --- Arquitectura Multi-Motor TTS ---
 
@@ -67,16 +71,47 @@ def get_coqui_model():
     logging.info("Modelo Coqui TTS cargado.")
     return coqui_xtts_model
 
-def get_sd_model(model_id="runwayml/stable-diffusion-v1-5"):
-    global sd_pipeline
-    if sd_pipeline: return sd_pipeline
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    logging.info(f"Cargando pipeline de Stable Diffusion '{model_id}' en dispositivo: {device}. ¡Esto tardará mucho!")
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if device == 'cuda' else torch.float32)
-    pipe = pipe.to(device)
-    sd_pipeline = pipe
-    logging.info("Pipeline de Stable Diffusion cargado.")
-    return sd_pipeline
+def _download_file(url, destination):
+    """Función auxiliar para descargar un archivo."""
+    logging.info(f"Descargando de {url} a {destination}...")
+    try:
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(destination, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        logging.info(f"Descarga de {destination} completada.")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error al descargar {url}: {e}")
+        raise
+
+def get_piper_model():
+    """Carga el modelo Piper TTS, descargándolo si es necesario."""
+    global piper_tts_model
+    if piper_tts_model: return piper_tts_model
+    
+    logging.info("Cargando modelo Piper TTS (davefx)...")
+    model_dir = "piper_models"
+    model_filename = "es_ES-davefx-medium.onnx"
+    model_path = os.path.join(model_dir, model_filename)
+    config_path = f"{model_path}.json"
+
+    # Comprueba si los archivos existen, si no, los descarga.
+    if not os.path.exists(model_path) or not os.path.exists(config_path):
+        logging.info(f"Modelo de Piper no encontrado. Iniciando descarga...")
+        onnx_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
+        json_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
+        
+        try:
+            _download_file(onnx_url, model_path)
+            _download_file(json_url, config_path)
+        except Exception as e:
+            raise RuntimeError(f"No se pudo descargar el modelo Piper: {e}")
+
+    piper_tts_model = PiperVoice.from_onnx(model_path, config_path=config_path)
+    logging.info("Modelo Piper TTS cargado.")
+    return piper_tts_model
+
 
 def generate_silero_audio(text, speaker):
     model = get_silero_model()
@@ -89,6 +124,34 @@ def generate_coqui_audio(text, speaker_wav):
     audio_tensor = torch.tensor(wav_output).unsqueeze(0)
     return audio_tensor, 24000
 
+def generate_piper_audio(text, speaker):
+    # El parámetro 'speaker' no se usa activamente aquí ya que cargamos un modelo específico.
+    # Se mantiene por consistencia en la arquitectura.
+    model = get_piper_model()
+    wav_bytes = io.BytesIO()
+    model.synthesize(text, wav_bytes)
+    wav_bytes.seek(0)
+    waveform, sample_rate = torchaudio.load(wav_bytes)
+    return waveform, sample_rate
+
+TTS_ENGINES = {
+    'silero': generate_silero_audio,
+    'coqui': generate_coqui_audio,
+    'piper': generate_piper_audio,
+}
+
+# --- Arquitectura Multi-Motor Texto a Imagen ---
+def get_sd_model(model_id="runwayml/stable-diffusion-v1-5"):
+    global sd_pipeline
+    if sd_pipeline: return sd_pipeline
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    logging.info(f"Cargando pipeline de Stable Diffusion '{model_id}' en dispositivo: {device}. ¡Esto tardará mucho!")
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if device == 'cuda' else torch.float32)
+    pipe = pipe.to(device)
+    sd_pipeline = pipe
+    logging.info("Pipeline de Stable Diffusion cargado.")
+    return sd_pipeline
+
 def generate_sd_image(prompt, model_id):
     pipe = get_sd_model(model_id)
     image = pipe(prompt).images[0]
@@ -97,11 +160,9 @@ def generate_sd_image(prompt, model_id):
     img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return img_str
 
-TTS_ENGINES = {'silero': generate_silero_audio, 'coqui': generate_coqui_audio}
 IMAGE_ENGINES = {'stable-diffusion-1.5': generate_sd_image}
 
-# --- Rutas de la Aplicación ---
-
+# --- Rutas y Lógica de la Aplicación ---
 def check_ollama_connection():
     try:
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
@@ -139,24 +200,18 @@ def manage_page():
     error_message = None
     if not ollama_available:
         error_message = "Ollama no está disponible para gestionar modelos."
-    
     installed_models = get_ollama_models() if ollama_available else []
-
     try:
         with open('models_catalog.json', 'r', encoding='utf-8') as f:
-            # Ahora simplemente leemos el JSON que ya está agrupado
-            grouped_models = json.load(f)
+            catalog_models = json.load(f)
+        grouped_models = defaultdict(list)
+        for model in catalog_models:
+            base_name = model['name'].split(':')[0]
+            grouped_models[base_name].append(model)
     except (FileNotFoundError, json.JSONDecodeError):
         grouped_models = {}
-        if not error_message:
-            error_message = "Error: No se pudo cargar o parsear 'models_catalog.json'."
-    
-    return render_template(
-        'manage.html',
-        models=installed_models,
-        grouped_models=grouped_models,
-        error=error_message
-    )
+        if not error_message: error_message = "Error: No se pudo cargar 'models_catalog.json'."
+    return render_template('manage.html', models=installed_models, grouped_models=grouped_models, error=error_message)
 
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -209,7 +264,6 @@ def ask():
         except Exception as e:
             return render_template('response.html', response=f"Error al generar imagen: {e}", question=question, model="Error T2I", mode=mode)
 
-# ... (resto de rutas sin cambios) ...
 @app.route('/upload_voice', methods=['POST'])
 def upload_voice():
     if 'voice_file' not in request.files: return redirect(request.url)

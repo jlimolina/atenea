@@ -40,14 +40,18 @@
             <div class="form-section" id="llm-section">
                 <label for="model">Selecciona un modelo LLM instalado:</label>
                 <select name="model" id="model" required>
-                    {% if models %}<option value="" disabled selected>-- Elige un modelo --</option>{% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}{% else %}<option value="" disabled selected>-- No hay modelos --</option>{% endif %}
+                    {% if models %}<option value="" disabled selected>-- Elige un modelo --</option>{% for model_name in models %}<option value="{{ model_name }}">{{ model_name }}</option>{% endfor %}{% else %}<option value="" disabled selected>-- No hay modelos instalados --</option>{% endif %}
                 </select>
             </div>
             
             <!-- Secciones TTS -->
             <div class="form-section" id="tts-engine-section">
                 <label for="tts_engine">Motor de Voz:</label>
-                <select name="tts_engine" id="tts_engine"><option value="silero">Silero</option><option value="coqui">Coqui TTS (Clonación)</option></select>
+                <select name="tts_engine" id="tts_engine">
+                    <option value="silero">Silero</option>
+                    <option value="coqui">Coqui TTS (Clonación)</option>
+                    <option value="piper">Piper TTS (Rápido)</option>
+                </select>
             </div>
             <div class="form-section" id="tts-speaker-section">
                 <label for="tts_speaker">Voz / Locutor:</label>
@@ -74,7 +78,6 @@
             </button>
         </form>
         
-         <!-- CORRECCIÓN: Se añade un ID a esta sección para poder controlarla con JS -->
          <div class="upload-section" id="upload-voice-section" style="margin-top: 30px; border-top: 1px solid #e9ecef; padding-top: 30px;">
             <h2>Añadir una nueva voz para clonar</h2>
             <p>Sube un archivo <strong>.wav</strong> para usarlo como una nueva opción en el motor Coqui TTS.</p>
@@ -94,17 +97,20 @@
         const ttsEngineSection = document.getElementById('tts-engine-section');
         const ttsSpeakerSection = document.getElementById('tts-speaker-section');
         const t2iSection = document.getElementById('t2i-section');
-        const uploadVoiceSection = document.getElementById('upload-voice-section'); // CORRECCIÓN: Referencia a la nueva sección
+        const uploadVoiceSection = document.getElementById('upload-voice-section');
 
         const llmModelSelect = document.getElementById('model');
         const ttsEngineSelect = document.getElementById('tts_engine');
         const ttsSpeakerSelect = document.getElementById('tts_speaker');
         const imageEngineSelect = document.getElementById('image_engine');
 
+        // Objeto JS con todas las voces, incluyendo la nueva de Piper
         const voicesByEngine = {
             'silero': { 'Voz Femenina 1': 'es_0', 'Voz Femenina 2': 'es_1', 'Voz Femenina 3': 'es_2' },
-            'coqui': {}
+            'coqui': {},
+            'piper': { 'Voz Española (DaveFX)': 'es_ES-davefx-medium' }
         };
+        // Se rellena dinámicamente con las voces subidas por el usuario
         {% for voice_file in available_voices %}
             voicesByEngine.coqui['{{ voice_file.split(".")[0].replace("_", " ")|title }}'] = 'voices/{{ voice_file }}';
         {% endfor %}
@@ -116,6 +122,8 @@
             for (const name in availableVoices) {
                 ttsSpeakerSelect.add(new Option(name, availableVoices[name]));
             }
+            // La sección de subida de voz solo es relevante para Coqui
+            uploadVoiceSection.style.display = selectedEngine === 'coqui' ? 'block' : 'none';
         }
 
         function updateFormMode() {
@@ -124,25 +132,28 @@
             const isTTS = mode === 'tts';
             const isT2I = mode === 'text-to-image';
 
-            // Visibilidad de secciones
+            // Visibilidad de las secciones del formulario principal
             llmSection.style.display = isLLM ? 'block' : 'none';
             ttsEngineSection.style.display = isTTS ? 'block' : 'none';
             ttsSpeakerSection.style.display = isTTS ? 'block' : 'none';
             t2iSection.style.display = isT2I ? 'block' : 'none';
-            uploadVoiceSection.style.display = isTTS ? 'block' : 'none'; // CORRECCIÓN: Mostrar solo en modo TTS
+            
+            // Lógica para mostrar/ocultar la sección de subida de voz
+            const isCoquiSelected = ttsEngineSelect.value === 'coqui';
+            uploadVoiceSection.style.display = (isTTS && isCoquiSelected) ? 'block' : 'none';
 
-            // Deshabilitar campos no activos para validación
+            // Deshabilitar campos no activos para una correcta validación del formulario
             llmModelSelect.disabled = !isLLM;
             ttsEngineSelect.disabled = !isTTS;
             ttsSpeakerSelect.disabled = !isTTS;
             imageEngineSelect.disabled = !isT2I;
 
-            // Actualizar clases activas
+            // Actualizar clases activas de los botones de modo
             document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('active'));
             const modeIdMap = { 'llm': 'llm-option', 'tts': 'tts-option', 'text-to-image': 't2i-option' };
             document.getElementById(modeIdMap[mode]).classList.add('active');
             
-            // Actualizar textos
+            // Actualizar textos de etiquetas y botones
             const questionLabel = document.getElementById('question-label');
             const submitText = document.getElementById('submit-text');
             
@@ -158,6 +169,7 @@
             }
         }
         
+        // Event Listeners
         document.querySelectorAll('input[name="mode"]').forEach(radio => {
             radio.parentElement.addEventListener('click', () => {
                 radio.checked = true;
@@ -174,7 +186,7 @@
             btn.querySelector('#loading-indicator').style.display = 'inline';
         });
 
-        // Inicialización
+        // Inicialización al cargar la página
         updateFormMode();
         updateSpeakerOptions();
     </script>
