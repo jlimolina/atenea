@@ -1,6 +1,6 @@
 Flask
 gunicorn
-
+TTS
 ollama
 
 torch
