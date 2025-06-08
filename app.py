@@ -18,11 +18,10 @@ from functools import wraps
 from TTS.api import TTS
 from torch.serialization import safe_globals
 from TTS.tts.configs.xtts_config import XttsConfig
+# Importar las clases de configuración necesarias
 from TTS.tts.models.xtts import XttsAudioConfig, XttsArgs
 from TTS.config.shared_configs import BaseDatasetConfig
-from diffusers import StableDiffusionPipeline
-# Nuevos imports para Piper TTS
-from piper.voice import PiperVoice
+# Importar defaultdict para agrupar modelos
 from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
@@ -32,7 +31,6 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'voices'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs('piper_models', exist_ok=True) # Asegura que la carpeta para Piper exista
 
 OLLAMA_HOST = 'http://localhost:11434'
 LLM_TIMEOUT = 180
@@ -41,17 +39,13 @@ def nl2br(value):
     return value.replace('\n', '<br>') if value else ''
 app.jinja_env.filters['nl2br'] = nl2br
 
-# --- Caché de Modelos ---
 silero_vits_model = None
 coqui_xtts_model = None
-sd_pipeline = None
-piper_tts_model = None # Caché para el modelo Piper
-
-# --- Arquitectura Multi-Motor TTS ---
 
 def get_silero_model():
     global silero_vits_model
-    if silero_vits_model: return silero_vits_model
+    if silero_vits_model:
+        return silero_vits_model
     logging.info("Cargando modelo Silero VITS...")
     torch.hub.set_dir(os.path.expanduser('~/.cache/torch/hub'))
     torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
@@ -62,56 +56,18 @@ def get_silero_model():
 
 def get_coqui_model():
     global coqui_xtts_model
-    if coqui_xtts_model: return coqui_xtts_model
+    if coqui_xtts_model:
+        return coqui_xtts_model
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logging.info(f"Cargando modelo Coqui TTS en dispositivo: {device}. ¡Puede tardar la primera vez!")
+    
+    # Se añaden TODAS las clases de configuración necesarias a la lista segura para PyTorch.
     with safe_globals([XttsConfig, XttsAudioConfig, BaseDatasetConfig, XttsArgs]):
         model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+        
     coqui_xtts_model = model
     logging.info("Modelo Coqui TTS cargado.")
     return coqui_xtts_model
-
-def _download_file(url, destination):
-    """Función auxiliar para descargar un archivo."""
-    logging.info(f"Descargando de {url} a {destination}...")
-    try:
-        with requests.get(url, stream=True) as r:
-            r.raise_for_status()
-            with open(destination, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-        logging.info(f"Descarga de {destination} completada.")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error al descargar {url}: {e}")
-        raise
-
-def get_piper_model():
-    """Carga el modelo Piper TTS, descargándolo si es necesario."""
-    global piper_tts_model
-    if piper_tts_model: return piper_tts_model
-    
-    logging.info("Cargando modelo Piper TTS (davefx)...")
-    model_dir = "piper_models"
-    model_filename = "es_ES-davefx-medium.onnx"
-    model_path = os.path.join(model_dir, model_filename)
-    config_path = f"{model_path}.json"
-
-    # Comprueba si los archivos existen, si no, los descarga.
-    if not os.path.exists(model_path) or not os.path.exists(config_path):
-        logging.info(f"Modelo de Piper no encontrado. Iniciando descarga...")
-        onnx_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
-        json_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
-        
-        try:
-            _download_file(onnx_url, model_path)
-            _download_file(json_url, config_path)
-        except Exception as e:
-            raise RuntimeError(f"No se pudo descargar el modelo Piper: {e}")
-
-    piper_tts_model = PiperVoice.from_onnx(model_path, config_path=config_path)
-    logging.info("Modelo Piper TTS cargado.")
-    return piper_tts_model
-
 
 def generate_silero_audio(text, speaker):
     model = get_silero_model()
@@ -124,45 +80,11 @@ def generate_coqui_audio(text, speaker_wav):
     audio_tensor = torch.tensor(wav_output).unsqueeze(0)
     return audio_tensor, 24000
 
-def generate_piper_audio(text, speaker):
-    # El parámetro 'speaker' no se usa activamente aquí ya que cargamos un modelo específico.
-    # Se mantiene por consistencia en la arquitectura.
-    model = get_piper_model()
-    wav_bytes = io.BytesIO()
-    model.synthesize(text, wav_bytes)
-    wav_bytes.seek(0)
-    waveform, sample_rate = torchaudio.load(wav_bytes)
-    return waveform, sample_rate
-
 TTS_ENGINES = {
     'silero': generate_silero_audio,
     'coqui': generate_coqui_audio,
-    'piper': generate_piper_audio,
 }
 
-# --- Arquitectura Multi-Motor Texto a Imagen ---
-def get_sd_model(model_id="runwayml/stable-diffusion-v1-5"):
-    global sd_pipeline
-    if sd_pipeline: return sd_pipeline
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    logging.info(f"Cargando pipeline de Stable Diffusion '{model_id}' en dispositivo: {device}. ¡Esto tardará mucho!")
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if device == 'cuda' else torch.float32)
-    pipe = pipe.to(device)
-    sd_pipeline = pipe
-    logging.info("Pipeline de Stable Diffusion cargado.")
-    return sd_pipeline
-
-def generate_sd_image(prompt, model_id):
-    pipe = get_sd_model(model_id)
-    image = pipe(prompt).images[0]
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return img_str
-
-IMAGE_ENGINES = {'stable-diffusion-1.5': generate_sd_image}
-
-# --- Rutas y Lógica de la Aplicación ---
 def check_ollama_connection():
     try:
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
@@ -188,11 +110,18 @@ def index():
         error_message = "Ollama no está disponible."
     elif not installed_models:
         error_message = "Ollama está corriendo pero no hay modelos instalados."
+
     try:
         voice_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.endswith('.wav')]
     except FileNotFoundError:
         voice_files = []
-    return render_template('index.html', models=installed_models, error=error_message, available_voices=voice_files)
+    
+    return render_template(
+        'index.html',
+        models=installed_models,
+        error=error_message,
+        available_voices=voice_files
+    )
 
 @app.route('/manage')
 def manage_page():
@@ -200,18 +129,39 @@ def manage_page():
     error_message = None
     if not ollama_available:
         error_message = "Ollama no está disponible para gestionar modelos."
+
     installed_models = get_ollama_models() if ollama_available else []
+
     try:
         with open('models_catalog.json', 'r', encoding='utf-8') as f:
             catalog_models = json.load(f)
+
+        # CORRECCIÓN: Agrupa los modelos por su nombre base para el desplegable
         grouped_models = defaultdict(list)
-        for model in catalog_models:
-            base_name = model['name'].split(':')[0]
-            grouped_models[base_name].append(model)
+        # El catálogo ahora es un objeto, no una lista. Iteramos sobre sus valores.
+        if isinstance(catalog_models, dict):
+            for family, models_in_family in catalog_models.items():
+                for model in models_in_family:
+                    base_name = model['name'].split(':')[0]
+                    grouped_models[base_name].append(model)
+        else: # Mantiene compatibilidad si el JSON sigue siendo una lista plana
+             for model in catalog_models:
+                base_name = model['name'].split(':')[0]
+                grouped_models[base_name].append(model)
+
+
     except (FileNotFoundError, json.JSONDecodeError):
         grouped_models = {}
-        if not error_message: error_message = "Error: No se pudo cargar 'models_catalog.json'."
-    return render_template('manage.html', models=installed_models, grouped_models=grouped_models, error=error_message)
+        if not error_message:
+            error_message = "Error: No se pudo cargar el catálogo 'models_catalog.json'."
+
+    return render_template(
+        'manage.html',
+        models=installed_models,
+        grouped_models=grouped_models,
+        error=error_message
+    )
+
 
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -224,75 +174,104 @@ def ask():
 
     if mode == 'llm':
         selected_model = data.get('model')
-        if not selected_model: return jsonify({"error": "Modelo no seleccionado"}), 400
+        if not selected_model:
+            return jsonify({"error": "Modelo no seleccionado"}), 400
         try:
             start_time = time.time()
             response = ollama.chat(model=selected_model, messages=[{'role': 'user', 'content': question}], options={'timeout': LLM_TIMEOUT})
-            elapsed_time = round(time.time() - start_time, 2)
-            return render_template('response.html', response=response['message']['content'], question=question, model=selected_model, mode=mode, elapsed_time=elapsed_time)
+            duration = time.time() - start_time
+            return render_template('response.html', response=response['message']['content'], question=question, model=selected_model, mode=mode, duration=duration)
         except Exception as e:
             error_msg = {socket.gaierror: "Error de red", ConnectionRefusedError: "Ollama no responde"}.get(type(e), f"Error: {str(e)}")
-            return render_template('response.html', response=error_msg, question=question, model=selected_model, mode=mode, elapsed_time=None)
+            logging.error(f"Error LLM: {error_msg}")
+            return render_template('response.html', response=error_msg, question=question, model=selected_model, mode=mode, duration=0)
 
     elif mode == 'tts':
         try:
             selected_engine_name = request.form.get('tts_engine', 'silero')
             selected_speaker = request.form.get('tts_speaker')
             generation_function = TTS_ENGINES.get(selected_engine_name)
-            if not generation_function: raise ValueError(f"Motor TTS no válido: {selected_engine_name}")
-            
+            if not generation_function:
+                raise ValueError(f"Motor TTS no válido: {selected_engine_name}")
+
+            logging.info(f"Generando audio con motor '{selected_engine_name}' y voz '{selected_speaker}'...")
             audio_tensor, sample_rate = generation_function(question, selected_speaker)
             audio_data = io.BytesIO()
             torchaudio.save(audio_data, audio_tensor, sample_rate, format='wav')
             audio_data.seek(0)
+            if audio_data.getbuffer().nbytes < 100:
+                raise RuntimeError("El archivo de audio generado es demasiado pequeño")
+
             audio_base64 = base64.b64encode(audio_data.getvalue()).decode('utf-8')
-            return render_template('response.html', response=audio_base64, question=question, model=f"Motor: {selected_engine_name}, Voz: {os.path.basename(selected_speaker)}", mode=mode)
+            logging.info("Audio generado exitosamente.")
+            return render_template(
+                'response.html',
+                response=audio_base64,
+                question=question,
+                model=f"Motor: {selected_engine_name}, Voz: {os.path.basename(selected_speaker)}",
+                mode=mode
+            )
         except Exception as e:
+            logging.error(f"Error en TTS: {str(e)}", exc_info=True)
             return render_template('response.html', response=f"Error al generar audio: {e}", question=question, model="Error TTS", mode=mode)
-
-    elif mode == 'text-to-image':
-        try:
-            selected_engine_name = request.form.get('image_engine')
-            generation_function = IMAGE_ENGINES.get(selected_engine_name)
-            if not generation_function: raise ValueError(f"Motor de imagen no válido: {selected_engine_name}")
-
-            start_time = time.time()
-            image_base64 = generation_function(question, "runwayml/stable-diffusion-v1-5")
-            elapsed_time = round(time.time() - start_time, 2)
-            
-            return render_template('response.html', response=image_base64, question=question, model=f"Motor: {selected_engine_name}", mode=mode, elapsed_time=elapsed_time)
-        except Exception as e:
-            return render_template('response.html', response=f"Error al generar imagen: {e}", question=question, model="Error T2I", mode=mode)
 
 @app.route('/upload_voice', methods=['POST'])
 def upload_voice():
-    if 'voice_file' not in request.files: return redirect(request.url)
+    if 'voice_file' not in request.files:
+        return redirect(request.url)
     file = request.files['voice_file']
-    if file.filename == '': return redirect(request.url)
+    if file.filename == '':
+        return redirect(request.url)
     if file and file.filename.endswith('.wav'):
         filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        try:
+            file.save(save_path)
+            logging.info(f"Archivo de voz '{filename}' subido exitosamente.")
+        except Exception as e:
+            logging.error(f"Error al guardar el archivo: {e}")
         return redirect(url_for('index'))
-    return 'Formato de archivo no válido. Sube un .wav', 400
+    else:
+        return 'Formato de archivo no válido. Sube un .wav', 400
 
 @app.route('/download_model')
 def download_model():
     model_name = request.args.get('model_name')
-    if not model_name: return Response("Error: No se especificó el nombre del modelo.", status=400)
+    if not model_name:
+        return Response("Error: No se especificó el nombre del modelo.", status=400)
+
     def generate_stream():
         command = ["ollama", "pull", model_name]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', bufsize=1)
+        
         progress_regex = re.compile(r'(\d+)\s*%')
+
         for line in iter(process.stdout.readline, ''):
             clean_line = line.strip()
             progress_match = progress_regex.search(clean_line)
-            response_data = {"type": "progress", "percent": int(progress_match.group(1)), "status": clean_line} if progress_match else {"type": "log", "message": clean_line}
+            
+            response_data = {}
+            if progress_match:
+                percent = int(progress_match.group(1))
+                response_data = {"type": "progress", "percent": percent, "status": clean_line}
+            else:
+                response_data = {"type": "log", "message": clean_line}
+            
             yield f"data: {json.dumps(response_data)}\n\n"
+        
         process.stdout.close()
-        final_status = {"type": "done", "success": process.wait() == 0}
+        return_code = process.wait()
+        
+        final_status = {"type": "done", "success": return_code == 0}
         yield f"data: {json.dumps(final_status)}\n\n"
         yield "event: close\ndata: close\n\n"
+
     return Response(generate_stream(), mimetype='text/event-stream')
+
+@app.route('/system_status')
+def system_status():
+    status = {"ollama_available": check_ollama_connection(), "ollama_models": get_ollama_models()}
+    return jsonify(status)
 
 if __name__ == '__main__':
     print("\n" + "="*50 + "\nAtenea - Servicio Multimodal de IA\n" + "="*50)
