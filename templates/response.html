@@ -23,7 +23,10 @@
         {% if mode == 'llm' %}
             <div class="response-box">
                 <strong>Modelo utilizado:</strong> {{ model }}
-                {% if elapsed_time is not none %}<span class="time-indicator">| <strong>Tiempo:</strong> {{ "%.2f"|format(elapsed_time) }}s</span>{% endif %}
+                <!-- CORRECCIÓN: Comprobación segura de la variable -->
+                {% if elapsed_time is defined and elapsed_time > 0 %}
+                    <span class="time-indicator">| <strong>Tiempo:</strong> {{ "%.2f"|format(elapsed_time) }}s</span>
+                {% endif %}
                 <hr style="margin: 15px 0; border-color: #dee2e633;">
                 <div class="response-text">{{ response | nl2br | safe }}</div>
             </div>
@@ -36,7 +39,10 @@
         {% elif mode == 'text-to-image' %}
             <div class="response-box">
                 <strong>Modelo utilizado:</strong> {{ model }}
-                 {% if elapsed_time is not none %}<span class="time-indicator">| <strong>Tiempo:</strong> {{ "%.2f"|format(elapsed_time) }}s</span>{% endif %}
+                 <!-- CORRECCIÓN: Comprobación segura de la variable -->
+                 {% if elapsed_time is defined and elapsed_time > 0 %}
+                    <span class="time-indicator">| <strong>Tiempo:</strong> {{ "%.2f"|format(elapsed_time) }}s</span>
+                 {% endif %}
                  <hr style="margin: 15px 0; border-color: #dee2e633;">
                 <img src="data:image/png;base64,{{ response }}" alt="Imagen generada" style="width:100%; height:auto; border-radius: 8px;">
                 <div style="text-align:center;"><a href="data:image/png;base64,{{ response }}" download="atenea_imagen.png" class="download-btn" style="margin-top: 20px;">Descargar Imagen</a></div>
