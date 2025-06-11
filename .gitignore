@@ -27,6 +27,8 @@ Thumbs.db
 
 # Archivo de audio de prueba generado
 test_audio.wav
+*.wav
+*.mp3
 
 # Archivos de entorno (si decides usarlos en el futuro)
 .env

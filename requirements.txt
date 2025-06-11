@@ -1,13 +1,18 @@
-Flask
-gunicorn
-TTS
-ollama
-
-torch
-torchaudio
-transformers==4.31.0
-psutil
+# --- Core de la App Web ---
+flask
 requests
-diffusers
-accelerate
-piper-tts
+psutil
+
+# --- Motores de IA ---
+ollama
+TTS                 # Librería principal de Coqui TTS
+torch               # Requerido por TTS y Silero
+torchaudio          # Requerido por TTS y Silero
+
+# --- DEPENDENCIAS CRÍTICAS FIJADAS ---
+# Se fija esta versión para evitar el error "'GPT2InferenceModel' object has no attribute 'generate'"
+# que ocurre en versiones más nuevas de transformers.
+transformers==4.41.2
+
+# --- Servidor de Producción (Recomendado pero no usado en el script final) ---
+gunicorn

@@ -1,62 +1,52 @@
 #!/bin/bash
 
 #-----------------------------------------------------------------------
-# Instalador Automático de Producción para "Atenea" v5.1
+# Instalador Final para "Atenea" v6.0
 #
-# DESPLIEGUE PROFESIONAL: Mueve la aplicación a /var/www, instala
-# dependencias, configura Ollama, y despliega con Gunicorn y Nginx,
-# solucionando definitivamente los problemas de permisos y de PATH.
+# DESPLIEGUE DIRECTO CON PYTHON: Configura la aplicación para
+# ejecutarse desde su propio directorio usando el servidor de Flask
+# y un servicio de systemd.
+# Incluye todas las correcciones de dependencias y entorno.
 #-----------------------------------------------------------------------
 
-# Salir inmediatamente si un comando falla para evitar instalaciones parciales.
+# Salir inmediatamente si un comando falla.
 set -e
 
-echo "--- 🚀 Iniciando el instalador de Producción de Atenea AI 🚀 ---"
+echo "--- 🚀 Iniciando el instalador Final de Atenea AI 🚀 ---"
 
-# --- PASO 1: Recopilar y confirmar la configuración ---
-read -p "Introduce el dominio para tu aplicación (ej. atenea.midominio.com). Pulsa ENTER para usar 'localhost': " DOMAIN_NAME
-DOMAIN_NAME=${DOMAIN_NAME:-localhost}
-
+# --- PASO 1: Confirmar la configuración ---
+PROJECT_DIR=$(pwd)
 CURRENT_USER=$(whoami)
-# CORRECCIÓN DEFINITIVA: Se define el directorio estándar de despliegue web.
-PROJECT_DIR="/var/www/atenea"
 
 echo "--------------------------------------------------"
-echo "Se usará la siguiente configuración para el despliegue:"
-echo "Dominio:               $DOMAIN_NAME"
+echo "La aplicación se instalará en el directorio actual:"
+echo "Directorio del proyecto: $PROJECT_DIR"
 echo "Usuario del servicio:    $CURRENT_USER"
-echo "Directorio del proyecto: $PROJECT_DIR (estándar de producción)"
+echo "La app será accesible en: http://<IP_DEL_SERVIDOR>:5000"
 echo "--------------------------------------------------"
-read -p "¿Es correcta esta configuración? (s/n) " -n 1 -r
+read -p "¿Continuar con esta configuración? (s/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     echo "Instalación cancelada por el usuario."
     exit 1
 fi
 
-# --- PASO 2: Mover el proyecto a la ubicación estándar ---
-echo -e "\n--- 🚚 Moviendo archivos del proyecto a $PROJECT_DIR ---"
-# Copia el contenido del directorio actual a la nueva ubicación.
-sudo mkdir -p $PROJECT_DIR
-# Usamos rsync para una copia eficiente.
-sudo rsync -a --delete "$(pwd)/" "$PROJECT_DIR/"
-# Asigna la propiedad del nuevo directorio al usuario actual para que pueda gestionarlo.
-sudo chown -R $CURRENT_USER:$CURRENT_USER $PROJECT_DIR
-
-# --- PASO 3: Instalar dependencias del sistema y PPA de Python ---
+# --- PASO 2: Instalar dependencias del sistema ---
 echo -e "\n--- 📦 Instalando dependencias del sistema y repositorio de Python ---"
 sudo apt-get update
 sudo apt-get install -y software-properties-common curl
-sudo add-apt-repository -y ppa:deadsnakes/ppa
+if ! grep -q "deadsnakes" /etc/apt/sources.list.d/*; then
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+fi
 sudo apt-get update
-sudo apt-get install -y python3.11 python3.11-venv nginx git
+sudo apt-get install -y python3.11 python3.11-venv git
 
-# --- PASO 4: Instalar y configurar Ollama ---
+# --- PASO 3: Instalar y configurar Ollama ---
 echo -e "\n--- 🦙 Instalando y configurando Ollama ---"
 if command -v ollama &> /dev/null; then
     echo "Ollama ya está instalado. Verificando que el servicio esté activo..."
 else
-    echo "Ollama no encontrado. Descargando e instalando con el script oficial..."
+    echo "Ollama no encontrado. Descargando e instalando..."
     curl -fsSL https://ollama.com/install.sh | sh
 fi
 echo "Asegurando que el servicio de Ollama esté en ejecución y habilitado para el arranque..."
@@ -64,36 +54,48 @@ sudo systemctl daemon-reload
 sudo systemctl enable ollama
 sudo systemctl start ollama
 
-# --- PASO 5: Configurar el entorno de Python en la nueva ubicación ---
-echo -e "\n--- 🐍 Configurando el entorno virtual de Python en $PROJECT_DIR ---"
-cd $PROJECT_DIR # Nos movemos al nuevo directorio para los siguientes pasos.
+# --- PASO 4: Configurar el entorno de Python ---
+echo -e "\n--- 🐍 Configurando el entorno virtual y las dependencias ---"
+cd "$PROJECT_DIR"
 
 if [ -d "venv" ]; then
-    echo "La carpeta 'venv' ya existe. Omitiendo la creación del entorno."
+    echo "El directorio 'venv' ya existe. Omitiendo creación."
 else
     echo "Creando entorno virtual en 'venv'..."
     python3.11 -m venv venv
 fi
 
-echo "Instalando dependencias de Python desde requirements.txt..."
+echo "Instalando dependencias de Python desde requirements.txt (esto puede tardar)..."
 "$PROJECT_DIR/venv/bin/pip" install -r requirements.txt
-echo "Entorno de Python configurado."
+echo "Entorno de Python y dependencias configurados."
 
-# --- PASO 6: Configurar el servicio de systemd para Atenea ---
-echo -e "\n--- ⚙️ Configurando Gunicorn con systemd para la app Atenea ---"
+# --- PASO 5: Configurar el servicio de systemd para Atenea ---
+echo -e "\n--- ⚙️ Configurando el servicio de systemd para la app Atenea ---"
 cat <<EOF | sudo tee /etc/systemd/system/atenea.service
 [Unit]
-Description=Gunicorn instance para servir la aplicación Atenea
+Description=Aplicación de IA Atenea
 Requires=ollama.service
 After=network.target ollama.service
 
 [Service]
 User=$CURRENT_USER
-Group=www-data
+Group=$(id -gn $CURRENT_USER)
 WorkingDirectory=$PROJECT_DIR
-# CORRECCIÓN: Se añade el PATH del sistema para que el proceso pueda encontrar 'ollama'.
-Environment="PATH=/usr/local/bin:/usr/bin:/bin:$PROJECT_DIR/venv/bin"
-ExecStart=$PROJECT_DIR/venv/bin/gunicorn --workers 3 --bind unix:/run/atenea.sock -m 007 --timeout 120 app:app
+
+# Entornos CRÍTICOS para que todo funcione
+# PATH: Para que el servicio encuentre los ejecutables de python/pip.
+# HOME: Para que TTS encuentre los modelos descargados y la licencia aceptada.
+Environment="PATH=$PROJECT_DIR/venv/bin:/usr/bin"
+Environment="HOME=/home/$CURRENT_USER"
+
+# --- CONFIGURACIÓN DE EJECUCIÓN ---
+# Opción A (Tu elección): Usar el servidor de desarrollo de Flask. Simple pero no recomendado para producción.
+ExecStart=$PROJECT_DIR/venv/bin/python3 $PROJECT_DIR/app.py
+
+# Opción B (Recomendado para el futuro): Usar un servidor de producción como Gunicorn. Es más estable y robusto.
+# Para usarlo, comenta la línea de arriba y descomenta la de abajo.
+# ExecStart=$PROJECT_DIR/venv/bin/gunicorn --workers 1 --bind 0.0.0.0:5000 --timeout 120 app:app
+
 Restart=always
 
 [Install]
@@ -107,47 +109,14 @@ sudo systemctl enable atenea
 
 echo "Servicio de Atenea configurado y en ejecución."
 
-# --- PASO 7: Configurar Nginx como Reverse Proxy ---
-echo -e "\n--- 🌐 Configurando Nginx como servidor web ---"
-cat <<EOF | sudo tee /etc/nginx/sites-available/atenea
-server {
-    listen 80;
-    server_name $DOMAIN_NAME;
-
-    location /static {
-        alias $PROJECT_DIR/static;
-    }
-
-    location / {
-        proxy_connect_timeout 600s;
-        proxy_send_timeout 600s;
-        proxy_read_timeout 600s;
-        fastcgi_send_timeout 600s;
-        fastcgi_read_timeout 600s;
-        include proxy_params;
-        proxy_pass http://unix:/run/atenea.sock;
-    }
-}
-EOF
-
-echo "Habilitando la configuración del sitio en Nginx..."
-sudo ln -s -f /etc/nginx/sites-available/atenea /etc/nginx/sites-enabled/
-
-if [ -f /etc/nginx/sites-enabled/default ]; then
-    sudo rm /etc/nginx/sites-enabled/default
-fi
-
-echo "Probando la sintaxis de Nginx y reiniciando el servicio..."
-sudo nginx -t
-sudo systemctl restart nginx
-
 # --- Finalización ---
 echo -e "\n--- ✅ ¡Instalación completada! ---"
-echo "Tu aplicación Atenea ahora debería estar accesible en: http://$DOMAIN_NAME"
-echo "Puedes comprobar el estado de los servicios en cualquier momento con:"
-echo "  sudo systemctl status atenea"
-echo "  sudo systemctl status ollama"
+echo "Tu aplicación Atenea ahora debería estar accesible en la red."
+echo "Para acceder, usa la IP de tu servidor seguida del puerto 5000."
+echo "Ejemplo: http://192.168.1.100:5000"
+echo ""
+echo "Recuerda que para que Coqui TTS funcione, debes aceptar la licencia la primera vez"
+echo "ejecutando el modelo de forma interactiva, como hicimos en la depuración."
+echo ""
 echo "Para ver los logs de la aplicación en tiempo real, usa:"
 echo "  journalctl -u atenea -f"
-
-
